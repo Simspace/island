@@ -67,3 +67,6 @@ FAQ
 
 Q: Why "Island"?  
 A: Vinyl is a wordplay on the musical meaning of the word "record". I want to make a variant of Vinyl based on trees instead of lists. There is a music publishing company called "[Island Records](https://en.wikipedia.org/wiki/Island_Records)" and their logo is a tree.
+
+Q: Why "Alg"?  
+A: The full names are "Record", "Co-Record", "Record Tree", "Co-Record Tree", "Algebraic", and "Co-Algebraic".
