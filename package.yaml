@@ -1,0 +1,20 @@
+name: island
+version: '0.1'
+maintainer: SimSpace
+license: AllRightsReserved
+
+default-extensions:
+  - ScopedTypeVariables
+
+ghc-options:
+  - -Wall
+  - -Werror
+  - -fwarn-tabs
+  - -O2
+
+dependencies:
+  - base
+  - vinyl
+
+library:
+  source-dirs: src
