@@ -23,9 +23,17 @@ Here are the shapes we plan to support:
     All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores two different kinds of information: one for each internal node of the tree, and one for each leaf as usual.
 6.  `CoRecTrie :: (Tree t -> *) -> (t -> *) -> Tree t -> *` (co-record trie)  
     Either points to an internal node, or to a leaf.
-7.  `Structured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
+7.  `data SP = Sum | Product`  
+    `data Trie e a = Lief a | Brinch e [Trie e a]`  
+    `AlgTree :: Trie SP t -> (t -> *) -> *` (algebraic tree)  
+    Each node in the tree is either a product or a sum, but the sub-nodes of a product can be sums and vice-versa. This is useful when your POAD isn't a product of products all the way down or a sum of sums all the way down, but you still want to be able to work on the leaves.
+8.  `TwistedAlgTree :: (SP -> SP) -> (t -> *) -> Trie SP t -> *` (twisted algebraic tree)  
+    You can make your own `CoAlgTree` by providing a type-level function which flips the `SP` constructor. Or, by providing a constant function, you can use products or sums everywhere. This is useful if you want to talk about every possible leaf, or point to one possible leaf.
+9.  `TwistedAlgTrie :: (SP -> SP) -> (Trie SP t -> *) -> (t -> *) -> Trie SP t -> *` (twisted algebraic trie)  
+    You can use the `SP` constructor to store different kinds of information at the internal nodes which are products and at the internal nodes which are sums. Use the identity function to get a non-twisted `AlgTrie`.
+10. `Structured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
     This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record field. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
-8.  `CoStructured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
+11. `CoStructured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
     Whatever we end up deciding for Structured, given the other shapes in this list we will probably want an instantiation in which all the products become sums and vice-versa.
 
 Operations
