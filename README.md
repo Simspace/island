@@ -26,7 +26,7 @@ Here are the shapes we plan to support:
 7.  `Structured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
     This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record field. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
 8.  `CoStructured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
-    Whatever we end up deciding for Alg, given the other shapes in this list we will probably want an instantiation in which all the products become sums and vice-versa.
+    Whatever we end up deciding for Structured, given the other shapes in this list we will probably want an instantiation in which all the products become sums and vice-versa.
 
 Operations
 ---
@@ -71,7 +71,7 @@ Other than that, we plan to add whatever is the equivalent of `fmap`, `zip` and 
 
 From those, it should be easy to implement folds, etc.
 
-We will of course also implement operations for Alg and CoAlg, as soon as we figure out what those shapes look like :)
+We will of course also implement operations for Structured and CoStructured, as soon as we figure out what those shapes look like :)
 
 
 FAQ
