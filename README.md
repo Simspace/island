@@ -13,7 +13,7 @@ Here are the shapes we plan to support:
 1.  `Rec :: (t -> *) -> [t] -> *` (record)  
     The classic vinyl shape, indexed by the Functor of your choice, usually Identity, and a type-level list of `t`s, usually types. Any product POAD corresponds to a Rec containing the same fields as the POAD, except each field is wrapped in the chosen Functor.
 2.  `CoRec :: (t -> *) -> [t] -> *` (co-record)  
-    A more recent vinyl shape, also indexed by a Functor and a type-level list. Any sum POAD corresponds to a CoRec containing the fields of one of the constructors, except the fields are wrapped in the chosen Functor. It can also be used to represent one of the fields of a product POAD. And a Rec can be used to represent all of the fields of all the constructors of a sum POAD!
+    A more recent vinyl shape, also indexed by a Functor and a type-level list. Any sum POAD corresponds to a CoRec containing the fields of one of the constructors, except the tuple of fields is wrapped in the chosen Functor. It can also be used to represent one of the fields of a product POAD. And a Rec can be used to represent all of the fields of all the constructors of a sum POAD!
 3.  `data Tree a = Leaf a | Branch [Tree a]`  
     `RecTree :: (t -> *) -> Tree t -> *` (record tree)  
     This time the index is a tree of types, not a list. This is useful when some of your record's fields are also records, and you want to work on all the non-record fields at the leaves. As usual, those leaves are wrapped in the chosen Functor.
