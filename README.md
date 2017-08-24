@@ -24,7 +24,7 @@ Here are the shapes we plan to support:
 6.  `CoRecTrie :: (Tree t -> *) -> (t -> *) -> Tree t -> *` (co-record trie)  
     Either points to an internal node, or to a leaf.
 7.  `data SP = Sum | Product`  
-    `data Trie e a = Lief a | Brinch e [Trie e a]`  
+    `data Trie e a = TrieLeaf a | TrieBranch e [Trie e a]`  
     `AlgTree :: Trie SP t -> (t -> *) -> *` (algebraic tree)  
     Each node in the tree is either a product or a sum, but the sub-nodes of a product can be sums and vice-versa. This is useful when your POAD isn't a product of products all the way down or a sum of sums all the way down, but you still want to be able to work on the leaves.
 8.  `TwistedAlgTree :: (SP -> SP) -> (t -> *) -> Trie SP t -> *` (twisted algebraic tree)  
