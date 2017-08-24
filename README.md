@@ -28,9 +28,9 @@ Here are the shapes we plan to support:
     `AlgTree :: Trie SP t -> (t -> *) -> *` (algebraic tree)  
     Each node in the tree is either a product or a sum, so the sub-nodes of a product can be sums and vice-versa. This is useful when your POAD isn't a product of products all the way down or a sum of sums all the way down, but you still want to be able to work on the leaves.
 8.  `TwistedAlgTree :: (SP -> SP) -> (t -> *) -> Trie SP t -> *` (twisted algebraic tree)  
-    You can make your own `CoAlgTree` by providing a type-level function which flips the `SP` constructor. Or, by providing a constant function, you can use products or sums everywhere. This is useful if you want to talk about every possible leaf, or point to one possible leaf.
+    You can make your own CoAlgTree by providing a type-level function which flips the SP constructor. Or, by providing a constant function, you can use products or sums everywhere. This is useful if you want to talk about every possible leaf, or point to one possible leaf.
 9.  `TwistedAlgTrie :: (SP -> SP) -> (Trie SP t -> *) -> (t -> *) -> Trie SP t -> *` (twisted algebraic trie)  
-    You can use the `SP` constructor to store different kinds of information at the internal nodes which are products and at the internal nodes which are sums. Use the identity function to get a non-twisted `AlgTrie`.
+    You can use the SP constructor to store different kinds of information at the internal nodes which are products and at the internal nodes which are sums. Use the identity function to get a non-twisted AlgTrie.
 10. `Structured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
     This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record field. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
 11. `CoStructured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
@@ -51,7 +51,7 @@ Here are the operations we plan to support:
     lensTrie  :: Lens'  (RecTrie   ta) (RecTree   ta)
     prismTrie :: Prism' (CoRecTrie ta) (CoRecTree ta)
 
-where `Path` looks like
+where Path looks like
 
     Proxy @("lowerRight" :-> "x" :-> Int) :: Path ('Branch '[ "upperLeft" :-> ..., "lowerRight" :-> 'Branch '["x" :-> 'Leaf Int, ...] ]) Int
 
