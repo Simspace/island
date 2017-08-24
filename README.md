@@ -22,9 +22,9 @@ Here are the shapes we plan to support:
     All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores two different kinds of information: one for each internal node of the tree, and one for each leaf as usual.
 6. `CoRecTrie :: HTree t -> (HTree t -> *) -> (t -> *) -> *` (co-record trie)  
     Either points to an internal node, or to a leaf.
-7. `Alg :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *` (algebraic)  
+7. `Structured :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *`  
     This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record argument. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
-8. `CoAlg :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *` (co-algebraic)  
+8. `CoStructured :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *`  
     Whatever we end up deciding for Alg, given the other shapes in this list we will probably want an instantiation in which all the products become sums and vice-versa.
 
 Operations
