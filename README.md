@@ -18,7 +18,7 @@ Here are the shapes we plan to support:
     `RecTree :: (t -> *) -> Tree t -> *` (record tree)  
     This time the index is a tree of types, not a list. This is useful when some of your record's fields are also records, and you want to work on all the non-record fields at the leaves. As usual, those leaves are wrapped in the chosen Functor.
 4.  `CoRecTree :: (t -> *) -> Tree t -> *` (co-record tree)  
-    You've guessed it, this is useful when some of your constructors have fields which are also sums. A single leaf field is wrapped in the chosen Functor. Can also be used to represent a single leaf field in a record of records. And RecTree can be used to represent all the leaf fields of a sum of sums.
+    You've guessed it, this is useful when some of your sum's constructors have a single field which is also a sum. A single leaf field is wrapped in the chosen Functor. Can also be used to represent a single leaf field in a record of records. And RecTree can be used to represent all the leaf fields of a sum of sums.
 5.  `RecTrie :: (Tree t -> *) -> (t -> *) -> Tree t -> *` (record trie)  
     All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores two different kinds of information: one for each internal node of the tree, and one for each leaf as usual.
 6.  `CoRecTrie :: (Tree t -> *) -> (t -> *) -> Tree t -> *` (co-record trie)  
