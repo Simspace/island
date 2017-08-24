@@ -10,17 +10,17 @@ Shapes
 
 Here are the shapes we plan to support:
 
-1. `Rec :: HList t -> (t -> *) -> *`
+1. `Rec :: HList t -> (t -> *) -> *`  
     The classic vinyl shape, indexed by an HList and the Functor of your choice, usually Identity. Any product POAD corresponds to a Rec containing the same fields as the POAD, except each field is wrapped in the chosen Functor.
-2. `CoRec :: HList t -> (t -> *) -> *`
+2. `CoRec :: HList t -> (t -> *) -> *`  
     A more recent vinyl shape, also indexed by an HList and a Functor. Any sum POAD corresponds to a CoRec containing the argument of one of the constructors, except the argument is wrapped in the chosen Functor. It can also be used to represent one of the fields of a product POAD. And a Rec can be used to represent all of the arguments of all the constructors of a sum POAD!
-3. `RecTree :: HTree t -> (t -> *) -> *`
+3. `RecTree :: HTree t -> (t -> *) -> *`  
     This time the index is a tree of types, not a list. This is useful when some of your record's fields are also records, and you want to work on all the non-record fields at the leaves. As usual, those leaves are wrapped in the chosen Functor.
-4. `CoRecTree :: HTree t -> (t -> *) -> *`
+4. `CoRecTree :: HTree t -> (t -> *) -> *`  
     You've guessed it, this is useful when some of your constructors have arguments which are also sums. A single leaf alternative is wrapped in the chosen Functor. Can also be used to represent a single leaf field in a record of records. And RecTree can be used to represent all the leaf alternatives of a sum of sums.
-5. `Alg :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *`
+5. `Alg :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *`  
     This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record argument. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
-6. `CoAlg :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *`
+6. `CoAlg :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *`  
     Whatever we end up deciding for Alg, given the other shapes in this list we will probably want an instantiation in which all the products become sums and vice-versa.
 
 Operations
