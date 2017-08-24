@@ -20,7 +20,7 @@ Here are the shapes we plan to support:
     You've guessed it, this is useful when some of your constructors have arguments which are also sums. A single leaf alternative is wrapped in the chosen Functor. Can also be used to represent a single leaf field in a record of records. And RecTree can be used to represent all the leaf alternatives of a sum of sums.
 5. `RecTrie :: HTree t -> (HTree t -> *) -> (t -> *) -> *` (record trie)  
     All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores two different kinds of information: one for each internal node of the tree, and one for each leaf as usual.
-6. `CoRecTrie :: HTree t -> (HTree t -> *) -> (t -> *) -> *` (co-record true)  
+6. `CoRecTrie :: HTree t -> (HTree t -> *) -> (t -> *) -> *` (co-record trie)  
     Either points to an internal node, or to a leaf.
 7. `Alg :: ? tP tS tL -> (tP -> *) -> (tS -> *) -> (tL -> *) -> *` (algebraic)  
     This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record argument. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
