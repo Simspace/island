@@ -19,9 +19,9 @@ Here are the shapes we plan to support:
     This time the index is a tree of types, not a list. This is useful when some of your record's fields are also records, and you want to work on all the non-record fields at the leaves. As usual, those leaves are wrapped in the chosen Functor.
 4.  `CoRecTree :: (t -> *) -> Tree t -> *` (co-record tree)  
     You've guessed it, this is useful when some of your sum's constructors have a single field which is also a sum. A single leaf field is wrapped in the chosen Functor. Can also be used to represent a single leaf field in a record of records. And RecTree can be used to represent all the leaf fields of a sum of sums.
-5.  `RecTrie :: (Tree t -> *) -> (t -> *) -> Tree t -> *` (record trie)  
-    All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores two different kinds of information: one for each internal node of the tree, and one for each leaf as usual.
-6.  `CoRecTrie :: (Tree t -> *) -> (t -> *) -> Tree t -> *` (co-record trie)  
+5.  `RecTrie :: (Tree t -> *) -> Tree t -> *` (record trie)  
+    All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores a piece of information at each internal node of the tree, and also at each leaf as usual. The Tree constructor can be used to distinguish those two cases so that different types of information can be stored in those different places.
+6.  `CoRecTrie :: (Tree t -> *) -> Tree t -> *` (co-record trie)  
     Either points to an internal node, or to a leaf.
 7.  `data SP = Sum | Product`  
     `data Trie e a = TrieLeaf a | TrieBranch e [Trie e a]`  
@@ -29,8 +29,9 @@ Here are the shapes we plan to support:
     Each node in the tree is either a product or a sum, so the sub-nodes of a product can be sums and vice-versa. This is useful when your POAD isn't a product of products all the way down or a sum of sums all the way down, but you still want to be able to work on the leaves.
 8.  `TwistedAlgTree :: (SP -> SP) -> (t -> *) -> Trie SP t -> *` (twisted algebraic tree)  
     You can make your own CoAlgTree by providing a type-level function which flips the SP constructor. Or, by providing a constant function, you can use products or sums everywhere. This is useful if you want to talk about every possible leaf, or point to one possible leaf.
-9.  `TwistedAlgTrie :: (SP -> SP) -> (Trie SP t -> *) -> (t -> *) -> Trie SP t -> *` (twisted algebraic trie)  
-    You can use the SP constructor to store different kinds of information at the internal nodes which are products and at the internal nodes which are sums. Use the identity function to get a non-twisted AlgTrie.
+9.  `TwistedAlgTrie :: (SP -> SP) -> (Trie SP t -> *) -> Trie SP t -> *` (twisted algebraic trie)  
+    As before, the Trie constructor can be used to distinguish between internal nodes and leaves. In the case of an internal node, the SP constructor can be used to distinguish products and sums, so that different types of information can be stored in each case.  
+    There is no AlgTrie, since it can easily be obtained by using the identity function for the `ST -> ST` index.
 10. `Structured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
     This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record field. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
 11. `CoStructured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
