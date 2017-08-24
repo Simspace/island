@@ -26,7 +26,7 @@ Here are the shapes we plan to support:
 7.  `data SP = Sum | Product`  
     `data Trie e a = TrieLeaf a | TrieBranch e [Trie e a]`  
     `AlgTree :: Trie SP t -> (t -> *) -> *` (algebraic tree)  
-    Each node in the tree is either a product or a sum, but the sub-nodes of a product can be sums and vice-versa. This is useful when your POAD isn't a product of products all the way down or a sum of sums all the way down, but you still want to be able to work on the leaves.
+    Each node in the tree is either a product or a sum, so the sub-nodes of a product can be sums and vice-versa. This is useful when your POAD isn't a product of products all the way down or a sum of sums all the way down, but you still want to be able to work on the leaves.
 8.  `TwistedAlgTree :: (SP -> SP) -> (t -> *) -> Trie SP t -> *` (twisted algebraic tree)  
     You can make your own `CoAlgTree` by providing a type-level function which flips the `SP` constructor. Or, by providing a constant function, you can use products or sums everywhere. This is useful if you want to talk about every possible leaf, or point to one possible leaf.
 9.  `TwistedAlgTrie :: (SP -> SP) -> (Trie SP t -> *) -> (t -> *) -> Trie SP t -> *` (twisted algebraic trie)  
