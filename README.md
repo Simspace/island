@@ -87,6 +87,12 @@ The product shapes, namely Rec, RecTree, RecTrie, and the twisted shapes which u
       pure1 :: (forall x. f x) -> s f a
       ap1   :: (forall x. f x -> g x -> h x) -> s f a -> s g a -> s h a
 
+The other shapes all have a corresponding product shape into which they can be cast in order to use Applicative1.
+
+    class Productizable s where
+      type Productized s
+      productize :: (forall x. Maybe (f x) -> g x) -> s f a -> Productized s g a
+
 We will of course also implement operations for Structured and CoStructured, as soon as we figure out what those shapes look like :)
 
 
