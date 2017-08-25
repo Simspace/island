@@ -11,16 +11,16 @@ Shapes
 Here are the shapes we plan to support:
 
 1.  `Rec :: (t -> *) -> [t] -> *` (record)  
-    The classic vinyl shape, indexed by the Functor of your choice, usually Identity, and a type-level list of `t`s, usually types. Any product POAD corresponds to a Rec containing the same fields as the POAD, except each field is wrapped in the chosen Functor.
+    The classic vinyl shape, indexed by the Functor of your choice, usually Identity, and a type-level list of `t`s, usually types. Any product POAD corresponds to a `Rec` containing the same fields as the POAD, except each field is wrapped in the chosen Functor.
 2.  `CoRec :: (t -> *) -> [t] -> *` (co-record)  
-    A more recent vinyl shape, also indexed by a Functor and a type-level list. Any sum POAD corresponds to a CoRec containing the fields of one of the constructors, except the tuple of fields is wrapped in the chosen Functor. It can also be used to represent one of the fields of a product POAD. Conversely, a Rec can be used to represent all of the fields of all the constructors of a sum POAD.
+    A more recent vinyl shape, also indexed by a Functor and a type-level list. Any sum POAD corresponds to a `CoRec` containing the fields of one of the constructors, except the tuple of fields is wrapped in the chosen Functor. It can also be used to represent one of the fields of a product POAD. Conversely, a `Rec` can be used to represent all of the fields of all the constructors of a sum POAD.
 3.  `data Tree a = TreeLeaf a | TreeBranch [Tree a]`  
     `RecTree :: (t -> *) -> Tree t -> *` (record tree)  
     This time the index is a tree of types, not a list. This is useful when some of your record's fields are also records, and you want to work on all the non-record fields at the leaves. As usual, those leaves are wrapped in the chosen Functor.
 4.  `CoRecTree :: (t -> *) -> Tree t -> *` (co-record tree)  
-    You've guessed it, this is useful when some of your sum's constructors have a single field which is also a sum. A single leaf field is wrapped in the chosen Functor. Can also be used to represent a single leaf field in a record of records. And RecTree can be used to represent all the leaf fields of a sum of sums.
+    You've guessed it, this is useful when some of your sum's constructors have a single field which is also a sum. A single leaf field is wrapped in the chosen Functor. Can also be used to represent a single leaf field in a record of records. And `RecTree` can be used to represent all the leaf fields of a sum of sums.
 5.  `RecTrie :: (Tree t -> *) -> Tree t -> *` (record trie)  
-    All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores a piece of information at each internal node of the tree, and also at each leaf as usual. The Tree constructor can be used to distinguish those two cases so that different types of information can be stored in those different places.
+    All the shapes up to now store their information at the leaves, but this doesn't have to be the case. This shape stores a piece of information at each internal node of the tree, and also at each leaf as usual. The `Tree` constructor can be used to distinguish those two cases so that different types of information can be stored in those different places.
 6.  `CoRecTrie :: (Tree t -> *) -> Tree t -> *` (co-record trie)  
     Either points to an internal node, or to a leaf.
 7.  `data SP = Sum | Product`  
@@ -28,10 +28,10 @@ Here are the shapes we plan to support:
     `AlgTree :: Trie SP t -> (t -> *) -> *` (algebraic tree)  
     Each node in the tree is either a product or a sum, so the sub-nodes of a product can be sums and vice-versa. This is useful when your POAD isn't a product of products all the way down or a sum of sums all the way down, but you still want to be able to work on the leaves.
 8.  `TwistedAlgTree :: (SP -> SP) -> (t -> *) -> Trie SP t -> *` (twisted algebraic tree)  
-    You can make your own CoAlgTree by providing a type-level function which flips the SP constructor. Or, by providing a constant function, you can use products or sums everywhere. This is useful if you want to talk about every possible leaf, or point to one possible leaf.
+    You can make your own `CoAlgTree` by providing a type-level function which flips the `SP` constructor. Or, by providing a constant function, you can use products or sums everywhere. This is useful if you want to talk about every possible leaf, or point to one possible leaf.
 9.  `TwistedAlgTrie :: (SP -> SP) -> (Trie SP t -> *) -> Trie SP t -> *` (twisted algebraic trie)  
-    As before, the Trie constructor can be used to distinguish between internal nodes and leaves. In the case of an internal node, the SP constructor can be used to distinguish products and sums, so that different types of information can be stored in each case.  
-    There is no AlgTrie, since it can easily be obtained by using the identity function for the `ST -> ST` index.
+    As before, the `Trie` constructor can be used to distinguish between internal nodes and leaves. In the case of an internal node, the `SP` constructor can be used to distinguish products and sums, so that different types of information can be stored in each case.  
+    There is no `AlgTrie`, since it can easily be obtained by using the identity function for the `ST -> ST` index.
 
 POADs
 ---
@@ -51,7 +51,7 @@ Here are the conversions we plan to support:
 Type Classes
 ---
 
-Since those shapes are holding values of different types at the leaves, they cannot have a Functor instance. Since all the values are wrapped by the same `f`, however, we can give them a [Functor1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Functor1) instance, and also [Foldable1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Foldable1) and [Traversable1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Traversable1).
+Since those shapes are holding values of different types at the leaves, they cannot have a Functor instance. Since all the values are wrapped by the same `f`, however, we can give them a [`Functor1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Functor1) instance, and also [`Foldable1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Foldable1) and [`Traversable1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Traversable1).
 
     class Functor1 s where
       map1 :: (forall x. f x -> g x) -> s f a -> s g a
@@ -62,13 +62,13 @@ Since those shapes are holding values of different types at the leaves, they can
     class Traversable1 s where
       traverse1 :: Applicative m => (forall x. f x -> m (g x)) -> s f a -> m (s g a)
 
-The product shapes, namely Rec, RecTree, RecTrie, and the twisted shapes which use `Const 'Product`, can also be given an Applicative1 instance.
+The product shapes, namely `Rec`, `RecTree`, `RecTrie`, and the twisted shapes which use `Const 'Product`, can also be given an `Applicative1` instance.
 
     class Applicative1 s where
       pure1 :: (forall x. f x) -> s f a
       ap1   :: (forall x. f x -> g x -> h x) -> s f a -> s g a -> s h a
 
-The other shapes all have a corresponding product shape into which they can be cast in order to use Applicative1.
+The other shapes all have a corresponding product shape into which they can be cast in order to use `Applicative1`.
 
     class Productizable s where
       type Productized s
@@ -77,7 +77,7 @@ The other shapes all have a corresponding product shape into which they can be c
 Paths
 ---
 
-Each shape has a number of positions at which they may hold some information. A path describes one such position using a sequence of field names from the root of the data structure.
+Each shape has a number of positions at which they may hold some information. A `Path` describes one such position using a sequence of field names from the root of the data structure.
 
     class Structured1 s where
       type Path s
@@ -85,7 +85,7 @@ Each shape has a number of positions at which they may hold some information. A 
       withPath :: (forall x. Path s x -> f x -> g x) -> s f a -> s g a
       atPath   :: Path s b -> Optic s (s f a) (f b)
 
-A path can be converted into an optic pointing at the value inside the corresponding position. This optic must be at least as powerful as a Traversal', and can be stronger if the shape guarantees that the position is always present or that a single value at that position is sufficient to reconstruct the entire shape. In particular, the product shapes use a Lens', while the sum shapes use a Prism'.
+A `Path` can be converted into an `Optic` pointing at the value inside the corresponding position. This `Optic` must be at least as powerful as a `Traversal'`, and can be stronger if the shape guarantees that the position is always present or that a single value at that position is sufficient to reconstruct the entire shape. In particular, the product shapes use a `Lens'`, while the sum shapes use a `Prism'`.
 
 FAQ
 ---
