@@ -58,9 +58,6 @@ Here are the operations we plan to support:
     prismCoRecTree          :: LeafPath  ta  a -> Prism'     (CoRecTree          f ta) (f a)
     lensRecTrie             :: InnerPath ta tb -> Lens'      (RecTrie            f ta) (f tb)
     prismCoRecTrie          :: InnerPath ta tb -> Prism'     (CoRecTrie          f ta) (f tb)
-    traversalAlgTree        :: LeafPath  ta tb -> Traversal' (AlgTree            f ta) (f tb)
-    traversalTwistedAlgTree :: LeafPath  ta tb -> Traversal' (TwistedAlgTree fSP f ta) (f tb)
-    traversalTwistedAlgTrie :: InnerPath ta tb -> Traversal' (TwistedAlgTrie fSP f ta) (f tb)
 
 where LeafPath looks like
 
@@ -80,6 +77,13 @@ Since those shapes are holding values of different types at the leaves, they can
 
     class Traversable1 s where
       traverse1 :: Applicative m => (forall x. f x -> m (g x)) -> s f a -> m (s g a)
+
+Another essential piece of information which all shapes should be able to use is the path to each leaf and inner node.
+
+    class Structured1 s where
+      type Path s
+      withPath :: (forall x. Path s x -> f x -> g x) -> s f a -> s g a
+      atPath   :: Path s b -> Traversal' (s f a) (f b)
 
 The product shapes, namely Rec, RecTree, RecTrie, and the twisted shapes which use `Const 'Product`, can also be given an Applicative1 instance.
 
