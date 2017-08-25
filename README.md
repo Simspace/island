@@ -70,7 +70,7 @@ and InnerPath is a like LeafPath but it can stop at internal nodes as well, it d
 
 The optics for Rec and CoRec are already be provided by vinyl, but are re-exported under this new name for completeness.
 
-Since those shapes are holding values of different types at the leaves, they cannot have a Functor instance. Since all the values are wrapped by the same `f`, however, we can give them a [`Functor1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Functor1) instance, and also [`Foldable1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Foldable1) and [`Traversable1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Traversable1).
+Since those shapes are holding values of different types at the leaves, they cannot have a Functor instance. Since all the values are wrapped by the same `f`, however, we can give them a [Functor1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Functor1) instance, and also [Foldable1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Foldable1) and [Traversable1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Traversable1).
 
     class Functor1 s where
       map1 :: (forall x. f x -> g x) -> s f a -> s g a
@@ -81,7 +81,7 @@ Since those shapes are holding values of different types at the leaves, they can
     class Traversable1 s where
       traverse1 :: Applicative m => (forall x. f x -> m (g x)) -> s f a -> m (s g a)
 
-The product shapes, namely Rec, RecTree, RecTrie, and the twisted shapes which use `Const 'Product`, can also be given an `Applicative1` instance.
+The product shapes, namely Rec, RecTree, RecTrie, and the twisted shapes which use `Const 'Product`, can also be given an Applicative1 instance.
 
     class Applicative1 s where
       pure1 :: (forall x. f x) -> s f a
