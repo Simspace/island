@@ -32,10 +32,6 @@ Here are the shapes we plan to support:
 9.  `TwistedAlgTrie :: (SP -> SP) -> (Trie SP t -> *) -> Trie SP t -> *` (twisted algebraic trie)  
     As before, the Trie constructor can be used to distinguish between internal nodes and leaves. In the case of an internal node, the SP constructor can be used to distinguish products and sums, so that different types of information can be stored in each case.  
     There is no AlgTrie, since it can easily be obtained by using the identity function for the `ST -> ST` index.
-10. `Structured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
-    This part of the API isn't nailed down yet, but the idea is that we want to be able to talk about a record with a sum field where one of the constructors has a record field. One idea here is that you might want to provide three Functors: one which says what to do with the products, one which says what to do with the sums, and one which says what to do with the leaves.
-11. `CoStructured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
-    Whatever we end up deciding for Structured, given the other shapes in this list we will probably want an instantiation in which all the products become sums and vice-versa.
 
 Optics
 ---
@@ -92,8 +88,6 @@ The other shapes all have a corresponding product shape into which they can be c
     class Productizable s where
       type Productized s
       productize :: (forall x. Maybe (f x) -> g x) -> s f a -> Productized s g a
-
-We will of course also implement operations for Structured and CoStructured, as soon as we figure out what those shapes look like :)
 
 Paths
 ---
