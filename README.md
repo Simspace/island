@@ -42,41 +42,62 @@ Operations
 
 Here are the operations we plan to support:
 
-    _Rec       :: IsProduct     poad => Iso' poad (Rec       (Fields poad))
-    _CoRec     :: IsSum         poad => Iso' poad (CoRec     (Fields poad))
-    _RecTree   :: IsProductTree poad => Iso' poad (RecTree   (FieldsTree poad))
-    _CoRecTree :: IsSumTree     poad => Iso' poad (CoRecTree (FieldsTree poad))
+    _Rec            :: IsProduct     poad => Iso' poad (Rec               Identity     (Fields     poad))
+    _CoRec          :: IsSum         poad => Iso' poad (CoRec             Identity     (Fields     poad))
+    _RecTree        :: IsProductTree poad => Iso' poad (RecTree           Identity     (FieldsTree poad))
+    _CoRecTree      :: IsSumTree     poad => Iso' poad (CoRecTree         Identity     (FieldsTree poad))
+    _RecTrie        :: IsProductTree poad => Iso' poad (RecTrie           OnlyLeaf     (FieldsTree poad))
+    _CoRecTrie      :: IsSumTree     poad => Iso' poad (CoRecTrie         OnlyLeaf     (FieldsTree poad))
+    _AlgTree        :: IsAlgTree     poad => Iso' poad (AlgTree           Identity     (FieldsTrie poad))
+    _TwistedAlgTree :: IsAlgTree     poad => Iso' poad (TwistedAlgTree Id OnlyLeaf     (FieldsTrie poad))
+    _TwistedAlgTrie :: IsAlgTree     poad => Iso' poad (TwistedAlgTrie Id OnlyTrieLeaf (FieldsTrie poad))
 
-    lensPath  :: Path ta a -> Lens'  (RecTree   ta) a
-    prismPath :: Path ta a -> Prism' (CoRecTree ta) a
-    lensTrie  :: Lens'  (RecTrie   ta) (RecTree   ta)
-    prismTrie :: Prism' (CoRecTrie ta) (CoRecTree ta)
+    lensRec                 :: LeafPath  as  a -> Lens'      (Rec                f as) (f a)
+    prismCoRec              :: LeafPath  as  a -> Prism'     (CoRec              f as) (f a)
+    lensRecTree             :: LeafPath  ta  a -> Lens'      (RecTree            f ta) (f a)
+    prismCoRecTree          :: LeafPath  ta  a -> Prism'     (CoRecTree          f ta) (f a)
+    lensRecTrie             :: InnerPath ta tb -> Lens'      (RecTrie            f ta) (f tb)
+    prismCoRecTrie          :: InnerPath ta tb -> Prism'     (CoRecTrie          f ta) (f tb)
+    traversalAlgTree        :: LeafPath  ta tb -> Traversal' (AlgTree            f ta) (f tb)
+    traversalTwistedAlgTree :: LeafPath  ta tb -> Traversal' (TwistedAlgTree fSP f ta) (f tb)
+    traversalTwistedAlgTrie :: InnerPath ta tb -> Traversal' (TwistedAlgTrie fSP f ta) (f tb)
 
-where Path looks like
+where LeafPath looks like
 
-    Proxy @("lowerRight" :-> "x" :-> Int) :: Path ('TreeBranch '[ "upperLeft" :-> ..., "lowerRight" :-> 'TreeBranch '["x" :-> 'TreeLeaf Int, ...] ]) Int
+    Proxy @("lowerRight" :-> "x" :-> Int) :: LeafPath ('TreeBranch '[ "upperLeft" :-> ..., "lowerRight" :-> 'TreeBranch '["x" :-> 'TreeLeaf Int, ...] ]) Int
 
-The optics for Rec and CoRec should already be provided by vinyl.
+and InnerPath is a like LeafPath but it can stop at internal nodes as well, it doesn't have to reach a leaf.
+
+The optics for Rec and CoRec are already be provided by vinyl, but are re-exported under this new name for completeness.
 
 Other than that, we plan to add whatever is the equivalent of `fmap`, `zip` and `traverse` for each shape:
 
-    hoistRec       :: (forall x. f x -> g x) -> Rec          f as -> Rec          g as
-    hoistCoRec     :: (forall x. f x -> g x) -> CoRec        f as -> CoRec        g as
-    hoistRecTree   :: (forall x. f x -> g x) -> RecTree      f ta -> RecTree      g ta
-    hoistCoRecTree :: (forall x. f x -> g x) -> CoRecTree    f ta -> CoRecTree    g ta
-    hoistRecTrie   :: (forall x. f x -> g x) -> RecTrie      f ta -> RecTrie      g ta
-    hoistCoRecTrie :: (forall x. f x -> g x) -> CoRecTrie    f ta -> CoRecTrie    g ta
+    mapRec            :: (forall x. f x -> g x) -> Rec                f as -> Rec                g as
+    mapCoRec          :: (forall x. f x -> g x) -> CoRec              f as -> CoRec              g as
+    mapRecTree        :: (forall x. f x -> g x) -> RecTree            f ta -> RecTree            g ta
+    mapCoRecTree      :: (forall x. f x -> g x) -> CoRecTree          f ta -> CoRecTree          g ta
+    mapRecTrie        :: (forall x. f x -> g x) -> RecTrie            f ta -> RecTrie            g ta
+    mapCoRecTrie      :: (forall x. f x -> g x) -> CoRecTrie          f ta -> CoRecTrie          g ta
+    mapAlgTree        :: (forall x. f x -> g x) -> AlgTree            f ta -> AlgTree            g ta
+    mapTwistedAlgTree :: (forall x. f x -> g x) -> TwistedAlgTree fSP f ta -> TwistedAlgTree fSP g ta
+    mapTwistedAlgTrie :: (forall x. f x -> g x) -> TwistedAlgTrie fSP f ta -> TwistedAlgTrie fSP g ta
 
-    zipRecsWith     :: (forall x. f x -> g x -> h x) -> Rec     f as -> Rec     g as -> Rec     h as
-    zipRecTreesWith :: (forall x. f x -> g x -> h x) -> RecTree f ta -> RecTree g ta -> RecTree h ta
-    zipRecTriesWith :: (forall x. f x -> g x -> h x) -> RecTrie f ta -> RecTrie g ta -> RecTrie h ta
+    zipRecsWith       :: (forall x. f x -> g x -> h x) -> Rec                f as -> Rec                g as -> Rec                h as
+    zipRecTreesWith   :: (forall x. f x -> g x -> h x) -> RecTree            f ta -> RecTree            g ta -> RecTree            h ta
+    zipRecTriesWith   :: (forall x. f x -> g x -> h x) -> RecTrie            f ta -> RecTrie            g ta -> RecTrie            h ta
+    zipAlgTree        :: (forall x. f x -> g x -> h x) -> AlgTree            f ta -> AlgTree            g ta -> AlgTree            h ta
+    zipTwistedAlgTree :: (forall x. f x -> g x -> h x) -> TwistedAlgTree fSP f ta -> TwistedAlgTree fSP g ta -> TwistedAlgTree fSP h ta
+    zipTwistedAlgTrie :: (forall x. f x -> g x -> h x) -> TwistedAlgTrie fSP f ta -> TwistedAlgTrie fSP g ta -> TwistedAlgTrie fSP h ta
 
-    traverseRec       :: Applicative h => (forall x . f x -> h (g x)) -> Rec       f as -> h (Rec       g as)
-    traverseCoRec     :: Applicative h => (forall x . f x -> h (g x)) -> CoRec     f as -> h (CoRec     g as)
-    traverseRecTree   :: Applicative h => (forall x . f x -> h (g x)) -> RecTree   f ta -> h (RecTree   g ta)
-    traverseCoRecTree :: Applicative h => (forall x . f x -> h (g x)) -> CoRecTree f ta -> h (CoRecTree g ta)
-    traverseRecTrie   :: Applicative h => (forall x . f x -> h (g x)) -> RecTrie   f ta -> h (RecTrie   g ta)
-    traverseCoRecTrie :: Applicative h => (forall x . f x -> h (g x)) -> CoRecTrie f ta -> h (CoRecTrie g ta)
+    traverseRec            :: Applicative h => (forall x. f x -> h (g x)) -> Rec                f as -> h (Rec                g as)
+    traverseCoRec          :: Applicative h => (forall x. f x -> h (g x)) -> CoRec              f as -> h (CoRec              g as)
+    traverseRecTree        :: Applicative h => (forall x. f x -> h (g x)) -> RecTree            f ta -> h (RecTree            g ta)
+    traverseCoRecTree      :: Applicative h => (forall x. f x -> h (g x)) -> CoRecTree          f ta -> h (CoRecTree          g ta)
+    traverseRecTrie        :: Applicative h => (forall x. f x -> h (g x)) -> RecTrie            f ta -> h (RecTrie            g ta)
+    traverseCoRecTrie      :: Applicative h => (forall x. f x -> h (g x)) -> CoRecTrie          f ta -> h (CoRecTrie          g ta)
+    traverseAlgTree        :: Applicative h => (forall x. f x -> h (g x)) -> AlgTree            f ta -> h (AlgTree            g ta)
+    traverseTwistedAlgTree :: Applicative h => (forall x. f x -> h (g x)) -> TwistedAlgTree fSP f ta -> h (TwistedAlgTree fSP g ta)
+    traverseTwistedAlgTrie :: Applicative h => (forall x. f x -> h (g x)) -> TwistedAlgTrie fSP f ta -> h (TwistedAlgTrie fSP g ta)
 
 From those, it should be easy to implement folds, etc.
 
