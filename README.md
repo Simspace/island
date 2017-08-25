@@ -48,19 +48,6 @@ Here are the operations we plan to support:
     _TwistedAlgTree :: IsAlgTree     poad => Iso' poad (TwistedAlgTree Id OnlyLeaf     (FieldsTrie poad))
     _TwistedAlgTrie :: IsAlgTree     poad => Iso' poad (TwistedAlgTrie Id OnlyTrieLeaf (FieldsTrie poad))
 
-    lensRec                 :: LeafPath  as  a -> Lens'      (Rec                f as) (f a)
-    prismCoRec              :: LeafPath  as  a -> Prism'     (CoRec              f as) (f a)
-    lensRecTree             :: LeafPath  ta  a -> Lens'      (RecTree            f ta) (f a)
-    prismCoRecTree          :: LeafPath  ta  a -> Prism'     (CoRecTree          f ta) (f a)
-    lensRecTrie             :: InnerPath ta tb -> Lens'      (RecTrie            f ta) (f tb)
-    prismCoRecTrie          :: InnerPath ta tb -> Prism'     (CoRecTrie          f ta) (f tb)
-
-where LeafPath looks like
-
-    Proxy @("lowerRight" :-> "x" :-> Int) :: LeafPath ('TreeBranch '[ "upperLeft" :-> ..., "lowerRight" :-> 'TreeBranch '["x" :-> 'TreeLeaf Int, ...] ]) Int
-
-and InnerPath is a like LeafPath but it can stop at internal nodes as well, it doesn't have to reach a leaf.
-
 The optics for Rec and CoRec are already be provided by vinyl, but are re-exported under this new name for completeness.
 
 Type Classes
@@ -92,7 +79,7 @@ The other shapes all have a corresponding product shape into which they can be c
 Paths
 ---
 
-Another essential piece of information which all shapes should be able to use is the path to each leaf and inner node.
+Each shape has a number of positions at which they may hold some information. A path describes one such position using a sequence of field names from the root of the data structure.
 
     class Structured1 s where
       type Path s
@@ -100,6 +87,7 @@ Another essential piece of information which all shapes should be able to use is
       withPath :: (forall x. Path s x -> f x -> g x) -> s f a -> s g a
       atPath   :: Path s b -> Optic s (s f a) (f b)
 
+A path can be converted into an optic pointing at the value inside the corresponding position. This optic must be at least as powerful as a Traversal', and can be stronger if the shape guarantees that the position is always present or that a single value at that position is sufficient to reconstruct the entire shape. In particular, the product shapes use a Lens', while the sum shapes use a Prism'.
 
 FAQ
 ---
