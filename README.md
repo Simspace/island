@@ -37,7 +37,7 @@ Here are the shapes we plan to support:
 11. `CoStructured :: (tP -> *) -> (tS -> *) -> (tL -> *) -> ? tP tS tL -> *`  
     Whatever we end up deciding for Structured, given the other shapes in this list we will probably want an instantiation in which all the products become sums and vice-versa.
 
-Operations
+Optics
 ---
 
 Here are the operations we plan to support:
@@ -67,6 +67,9 @@ and InnerPath is a like LeafPath but it can stop at internal nodes as well, it d
 
 The optics for Rec and CoRec are already be provided by vinyl, but are re-exported under this new name for completeness.
 
+Type Classes
+---
+
 Since those shapes are holding values of different types at the leaves, they cannot have a Functor instance. Since all the values are wrapped by the same `f`, however, we can give them a [Functor1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Functor1) instance, and also [Foldable1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Foldable1) and [Traversable1](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Traversable1).
 
     class Functor1 s where
@@ -77,13 +80,6 @@ Since those shapes are holding values of different types at the leaves, they can
 
     class Traversable1 s where
       traverse1 :: Applicative m => (forall x. f x -> m (g x)) -> s f a -> m (s g a)
-
-Another essential piece of information which all shapes should be able to use is the path to each leaf and inner node.
-
-    class Structured1 s where
-      type Path s
-      withPath :: (forall x. Path s x -> f x -> g x) -> s f a -> s g a
-      atPath   :: Path s b -> Traversal' (s f a) (f b)
 
 The product shapes, namely Rec, RecTree, RecTrie, and the twisted shapes which use `Const 'Product`, can also be given an Applicative1 instance.
 
@@ -98,6 +94,17 @@ The other shapes all have a corresponding product shape into which they can be c
       productize :: (forall x. Maybe (f x) -> g x) -> s f a -> Productized s g a
 
 We will of course also implement operations for Structured and CoStructured, as soon as we figure out what those shapes look like :)
+
+Paths
+---
+
+Another essential piece of information which all shapes should be able to use is the path to each leaf and inner node.
+
+    class Structured1 s where
+      type Path s
+      type Optic s
+      withPath :: (forall x. Path s x -> f x -> g x) -> s f a -> s g a
+      atPath   :: Path s b -> Optic s (s f a) (f b)
 
 
 FAQ
