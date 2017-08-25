@@ -70,34 +70,20 @@ and InnerPath is a like LeafPath but it can stop at internal nodes as well, it d
 
 The optics for Rec and CoRec are already be provided by vinyl, but are re-exported under this new name for completeness.
 
-Other than that, we plan to add whatever is the equivalent of `fmap`, `zip` and `traverse` for each shape:
+Since those shapes are holding values of different types at the leaves, they cannot have a Functor instance. Since all the values are wrapped by the same `f`, however, we can give them a [`Functor1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Functor1) instance, and also `Applicative1`, [`Foldable1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Foldable1) and [`Traversable1`](https://www.stackage.org/haddock/lts-8.19/type-combinators-0.2.4.3/Type-Class-Higher.html#t:Traversable1).
 
-    mapRec            :: (forall x. f x -> g x) -> Rec                f as -> Rec                g as
-    mapCoRec          :: (forall x. f x -> g x) -> CoRec              f as -> CoRec              g as
-    mapRecTree        :: (forall x. f x -> g x) -> RecTree            f ta -> RecTree            g ta
-    mapCoRecTree      :: (forall x. f x -> g x) -> CoRecTree          f ta -> CoRecTree          g ta
-    mapRecTrie        :: (forall x. f x -> g x) -> RecTrie            f ta -> RecTrie            g ta
-    mapCoRecTrie      :: (forall x. f x -> g x) -> CoRecTrie          f ta -> CoRecTrie          g ta
-    mapAlgTree        :: (forall x. f x -> g x) -> AlgTree            f ta -> AlgTree            g ta
-    mapTwistedAlgTree :: (forall x. f x -> g x) -> TwistedAlgTree fSP f ta -> TwistedAlgTree fSP g ta
-    mapTwistedAlgTrie :: (forall x. f x -> g x) -> TwistedAlgTrie fSP f ta -> TwistedAlgTrie fSP g ta
+    class Functor1 s where
+      map1 :: (forall x. f x -> g x) -> s f a -> s g a
 
-    zipRecsWith       :: (forall x. f x -> g x -> h x) -> Rec                f as -> Rec                g as -> Rec                h as
-    zipRecTreesWith   :: (forall x. f x -> g x -> h x) -> RecTree            f ta -> RecTree            g ta -> RecTree            h ta
-    zipRecTriesWith   :: (forall x. f x -> g x -> h x) -> RecTrie            f ta -> RecTrie            g ta -> RecTrie            h ta
-    zipAlgTree        :: (forall x. f x -> g x -> h x) -> AlgTree            f ta -> AlgTree            g ta -> AlgTree            h ta
-    zipTwistedAlgTree :: (forall x. f x -> g x -> h x) -> TwistedAlgTree fSP f ta -> TwistedAlgTree fSP g ta -> TwistedAlgTree fSP h ta
-    zipTwistedAlgTrie :: (forall x. f x -> g x -> h x) -> TwistedAlgTrie fSP f ta -> TwistedAlgTrie fSP g ta -> TwistedAlgTrie fSP h ta
+    class Applicative1 s where
+      pure1 :: (forall x. f x) -> s f a
+      ap1   :: (forall x. f x -> g x -> h x) -> s f a -> s g a -> s h a
 
-    traverseRec            :: Applicative h => (forall x. f x -> h (g x)) -> Rec                f as -> h (Rec                g as)
-    traverseCoRec          :: Applicative h => (forall x. f x -> h (g x)) -> CoRec              f as -> h (CoRec              g as)
-    traverseRecTree        :: Applicative h => (forall x. f x -> h (g x)) -> RecTree            f ta -> h (RecTree            g ta)
-    traverseCoRecTree      :: Applicative h => (forall x. f x -> h (g x)) -> CoRecTree          f ta -> h (CoRecTree          g ta)
-    traverseRecTrie        :: Applicative h => (forall x. f x -> h (g x)) -> RecTrie            f ta -> h (RecTrie            g ta)
-    traverseCoRecTrie      :: Applicative h => (forall x. f x -> h (g x)) -> CoRecTrie          f ta -> h (CoRecTrie          g ta)
-    traverseAlgTree        :: Applicative h => (forall x. f x -> h (g x)) -> AlgTree            f ta -> h (AlgTree            g ta)
-    traverseTwistedAlgTree :: Applicative h => (forall x. f x -> h (g x)) -> TwistedAlgTree fSP f ta -> h (TwistedAlgTree fSP g ta)
-    traverseTwistedAlgTrie :: Applicative h => (forall x. f x -> h (g x)) -> TwistedAlgTrie fSP f ta -> h (TwistedAlgTrie fSP g ta)
+    class Foldable1 s where
+      foldMap1 :: Monoid m => (forall x. f x -> m) -> s f a -> m
+
+    class Traversable1 s where
+      traverse1 :: Applicative m => (forall x. f x -> m (g x)) -> s f a -> m (s g a)
 
 From those, it should be easy to implement folds, etc.
 
