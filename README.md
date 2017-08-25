@@ -33,10 +33,10 @@ Here are the shapes we plan to support:
     As before, the Trie constructor can be used to distinguish between internal nodes and leaves. In the case of an internal node, the SP constructor can be used to distinguish products and sums, so that different types of information can be stored in each case.  
     There is no AlgTrie, since it can easily be obtained by using the identity function for the `ST -> ST` index.
 
-Optics
+POADs
 ---
 
-Here are the operations we plan to support:
+Here are the conversions we plan to support:
 
     _Rec            :: IsProduct     poad => Iso' poad (Rec               Identity     (Fields     poad))
     _CoRec          :: IsSum         poad => Iso' poad (CoRec             Identity     (Fields     poad))
@@ -47,8 +47,6 @@ Here are the operations we plan to support:
     _AlgTree        :: IsAlgTree     poad => Iso' poad (AlgTree           Identity     (FieldsTrie poad))
     _TwistedAlgTree :: IsAlgTree     poad => Iso' poad (TwistedAlgTree Id OnlyLeaf     (FieldsTrie poad))
     _TwistedAlgTrie :: IsAlgTree     poad => Iso' poad (TwistedAlgTrie Id OnlyTrieLeaf (FieldsTrie poad))
-
-The optics for Rec and CoRec are already be provided by vinyl, but are re-exported under this new name for completeness.
 
 Type Classes
 ---
