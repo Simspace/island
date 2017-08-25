@@ -85,8 +85,6 @@ Since those shapes are holding values of different types at the leaves, they can
     class Traversable1 s where
       traverse1 :: Applicative m => (forall x. f x -> m (g x)) -> s f a -> m (s g a)
 
-From those, it should be easy to implement folds, etc.
-
 We will of course also implement operations for Structured and CoStructured, as soon as we figure out what those shapes look like :)
 
 
