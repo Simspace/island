@@ -46,11 +46,11 @@ So far so good. Now suppose we want to create an editor for gradients.
 
 We are again interested in the changed fields, and it seems like we should be able to represent this information using a value of type `Gradient (Const Bool)`. But can we?
 
-    type RGB      (Const Bool) = ( Const Bool Word8
+    type RGB      (Const Bool) ≈ ( Const Bool Word8
                                  , Const Bool Word8
                                  , Const Bool Word8
                                  )
-    type Gradient (Const Bool) = ( Const Bool (RGB (Const Bool))
+    type Gradient (Const Bool) ≈ ( Const Bool (RGB (Const Bool))
                                  , Const Bool (RGB (Const Bool))
                                  , Const Bool Bool
                                  )
