@@ -3,7 +3,61 @@
 Island
 ===
 
-Island extends [vinyl](https://hackage.haskell.org/package/vinyl) to support more shapes in addition to vinyl's flat records. In particular, you can use Island with any existing Plain Old Algebraic Datatype (POAD), you don't need to rewrite your codebase to use our fancy types everywhere.
+Island extends [vinyl](https://hackage.haskell.org/package/vinyl) to support tree shapes in addition to vinyl's flat records and co-records. Don't worry, you can use Island with your existing Plain Old Algebraic Datatype (POAD), you don't need to rewrite your codebase to use our fancy types everywhere.
+
+Vinyl Recap
+---
+
+Vinyl's `HList` is a generalized tuple with N fields. It is parameterized by a list of types `ts`. If `fold` worked at the type level, we could define it as follows.
+
+    type HList ts = fold (,) () ts
+
+Vinyl's `Rec` is a generalized tuple with N fields, and its `CoRec` is a generalized Either with N alternatives. We will use "shape" as a generic term for either `Rec` or `CoRec`, and the word "pieces" as a generic term for that shape's fields or alternatives, as appropriate. In addition to `ts`, those two shapes have an extra type parameter `f` which they apply to every piece. If `fmap` also worked at the type level, we could define them as follows.
+
+    type Rec   f ts = fold (,)    ()   (fmap f ts)
+    type CoRec f ts = fold Either Void (fmap f ts)
+
+This extra `f` makes it possible to manipulate all the pieces uniformly even though they have different types. For example, we cannot use `fmap show` to convert an `HList '[Int, Double]` into an `HList '[String, String]`, but we can use `rmap` to convert a `Rec (Dict Show) '[Int, Double]` into a `Rec (Const String) '[Int, Double]`.
+
+    -- |
+    -- >>> fmap show xs
+    -- error: Couldn't match kind [*] with *
+    xs :: HList '[Int, Double]
+    xs = 42 :& 0.5 :& RNil
+
+    -- |
+    -- >>> rmap (\case {Dict x -> Const (show x)}) ys
+    -- Const "42" :& Const "0.5" :& RNil
+    ys :: Rec (Dict Show) '[Int, Double]
+    ys = Dict 42 :& 0.5 :& RNil
+
+Vinyl Limitations
+---
+
+Suppose we're writing a color picker.
+
+    type RGB f = Rec f '[Word8, Word8, Word8]  -- [red, green, blue]
+
+Our color picker might have a color wheel, plus individual sliders and textboxes for each color component. One thing we might be interested in is whether each component has been changed or not. We can represent this information using a value of type `RGB (Const Bool)`.
+
+So far so good. Now suppose we want to create an editor for gradients.
+
+    type Gradient f = Rec f '[RGB f, RGB f, Bool]  -- [start color, end color, isCircular]
+
+We are again interested in the changed fields, and it seems like we should be able to represent this information using a value of type `Gradient (Const Bool)`. But can we?
+
+    type RGB      (Const Bool) = ( Const Bool Word8
+                                 , Const Bool Word8
+                                 , Const Bool Word8
+                                 )
+    type Gradient (Const Bool) = ( Const Bool (RGB (Const Bool))
+                                 , Const Bool (RGB (Const Bool))
+                                 , Const Bool Bool
+                                 )
+
+Unfortunately, the `Const Bool` around each `RGB (Const Bool)` means we'll only have a single `Bool` describing each `RGB` field, instead of the three `Bool`s per `RGB` field we would like to have. This is because Vinyl is designed to work on flat records whose data is in their immediate fields, not on records whose fields contain nested records.
+
+Vinyl allows us to work on pieces uniformly, as long as those pieces are the immediate children of a record. Island improves upon Vinyl by providing new shapes based on a tree of types instead of a flat list of types. This allows us to uniformly manipulate the `Word8`s and the `Bool` even though they live at different depths.
 
 Shapes
 ---
