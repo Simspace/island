@@ -238,4 +238,4 @@ FAQ
 ---
 
 Q: Why "island"?  
-A: Vinyl is a wordplay on the musical meaning of the word "record". I want to make a variant of vinyl based on trees instead of lists. There is a music publishing company called "[Island Records](https://en.wikipedia.org/wiki/Island_Records)" and their logo is a tree.
+A: Vinyl is a wordplay on the musical meaning of the word "record". I want to make a variant of vinyl based on trees instead of lists. There is a music publishing company called "[Island Records](https://en.wikipedia.org/wiki/Island_Records)" whose logo is a tree.
