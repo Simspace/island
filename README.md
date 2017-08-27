@@ -12,7 +12,7 @@ Vinyl's `HList` is a generalized tuple with N fields. It is parameterized by a l
 
     type HList ts = fold (,) () ts
 
-Vinyl's `Rec` is a generalized tuple with N fields, and its `CoRec` is a generalized Either with N alternatives. We will use "shape" as a generic term for either `Rec` or `CoRec`, and the word "pieces" as a generic term for that shape's fields or alternatives, as appropriate. In addition to `ts`, those two shapes have an extra type parameter `f` which they apply to every piece. If `fmap` also worked at the type level, we could define them as follows.
+Vinyl's `Rec` is also a generalized tuple with N fields, and its `CoRec` is a generalized Either with N alternatives. We will use "shape" as a generic term for either `Rec` or `CoRec`, and the word "pieces" as a generic term for that shape's fields or alternatives, as appropriate. In addition to `ts`, those two shapes have an extra type parameter `f` which they apply to every piece. If `fmap` also worked at the type level, we could define them as follows.
 
     type Rec   f ts = fold (,)    ()   (fmap f ts)
     type CoRec f ts = fold Either Void (fmap f ts)
