@@ -3,7 +3,7 @@
 Island
 ===
 
-Island extends [vinyl](https://hackage.haskell.org/package/vinyl) to support tree shapes in addition to vinyl's flat records and co-records. Don't worry, you can use island with your existing Plain Old Algebraic Datatype (POAD), you don't need to rewrite your codebase to use our fancy types everywhere.
+Island extends [vinyl](https://hackage.haskell.org/package/vinyl) to support tree shapes in addition to vinyl's flat records and co-records. Don't worry, you can use island with your existing Plain Old Algebraic Datatypes (POADs), you don't need to rewrite your codebase to use our fancy types everywhere.
 
 Vinyl Recap
 ---
