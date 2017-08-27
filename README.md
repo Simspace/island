@@ -106,7 +106,7 @@ With island, you define your data using Plain Old Algebraic Datatypes, like this
       _Rec = ...
 
       pieceLens :: Piece RGB t t a
-                -> Lens (Rec f (FieldTypes RGB t t)) (Rec g (FieldTypes t t RGB))
+                -> Lens (Rec f (FieldTypes RGB t t)) (Rec g (FieldTypes RGB t t))
                         (f (t a))                    (g (t a))
       pieceLens = ...
 
