@@ -3,7 +3,7 @@
 Island
 ===
 
-Island extends [vinyl](https://hackage.haskell.org/package/vinyl) to support tree shapes in addition to vinyl's flat records and co-records. Don't worry, you can use Island with your existing Plain Old Algebraic Datatype (POAD), you don't need to rewrite your codebase to use our fancy types everywhere.
+Island extends [vinyl](https://hackage.haskell.org/package/vinyl) to support tree shapes in addition to vinyl's flat records and co-records. Don't worry, you can use island with your existing Plain Old Algebraic Datatype (POAD), you don't need to rewrite your codebase to use our fancy types everywhere.
 
 Vinyl Recap
 ---
@@ -55,9 +55,9 @@ We are again interested in the changed fields, and it seems like we should be ab
                                  , Const Bool Bool
                                  )
 
-Unfortunately, the `Const Bool` around each `RGB (Const Bool)` means we'll only have a single `Bool` describing each `RGB` field, instead of the three `Bool`s per `RGB` field we would like to have. This is because Vinyl is designed to work on flat records whose data is in their immediate fields, not on records whose fields contain nested records.
+Unfortunately, the `Const Bool` around each `RGB (Const Bool)` means we'll only have a single `Bool` describing each `RGB` field, instead of the three `Bool`s per `RGB` field we would like to have. This is because vinyl is designed to work on flat records whose data is in their immediate fields, not on records whose fields contain nested records.
 
-Vinyl allows us to work on pieces uniformly, as long as those pieces are the immediate children of a record or a sum. Island improves upon Vinyl by providing new shapes based on a tree of types instead of a flat list of types. This allows us to uniformly manipulate the `Word8`s and the `Bool` even though they live at different depths.
+Vinyl allows us to work on pieces uniformly, as long as those pieces are the immediate children of a record or a sum. Island improves upon vinyl by providing new shapes based on a tree of types instead of a flat list of types. This allows us to uniformly manipulate the `Word8`s and the `Bool` even though they live at different depths.
 
 Shapes
 ---
@@ -151,5 +151,5 @@ The `Path` typically consists of a sequence of `PathSegment`s, each of which cor
 FAQ
 ---
 
-Q: Why "Island"?  
-A: Vinyl is a wordplay on the musical meaning of the word "record". I want to make a variant of Vinyl based on trees instead of lists. There is a music publishing company called "[Island Records](https://en.wikipedia.org/wiki/Island_Records)" and their logo is a tree.
+Q: Why "island"?  
+A: Vinyl is a wordplay on the musical meaning of the word "record". I want to make a variant of vinyl based on trees instead of lists. There is a music publishing company called "[Island Records](https://en.wikipedia.org/wiki/Island_Records)" and their logo is a tree.
