@@ -87,6 +87,13 @@ Each shape has a number of positions at which they may hold some information. A 
 
 A `Path` can be converted into an `Optic` pointing at the value inside the corresponding position. This `Optic` must be at least as powerful as a `Traversal'`, and can be stronger if the shape guarantees that the position is always present or that a single value at that position is sufficient to reconstruct the entire shape. In particular, the product shapes use a `Lens'`, while the sum shapes use a `Prism'`.
 
+The `Path` typically consists of a sequence of `PathSegment`s, each of which corresponds to a field name.
+
+    class Structured s where
+      type PathSegment s a
+      type Optic' s
+      atPathSegment :: PathSegment s a -> Optic' s s a
+
 FAQ
 ---
 
