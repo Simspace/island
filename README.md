@@ -3,7 +3,7 @@
 Island
 ===
 
-Island borrows [vinyl](https://hackage.haskell.org/package/vinyl)'s idea of wrapping an `f` around every field, and applies it to more complex data structures than just flat records. Don't worry, you can use island with your existing Plain Old Algebraic Datatypes (POADs), you don't need to rewrite your codebase to use our fancy types everywhere.
+Island borrows [vinyl](https://hackage.haskell.org/package/vinyl)'s idea of wrapping an `f` around every field, and applies it to your existing Plain Old Algebraic Datatypes (POADs). The `f` allows you to apply the same transformation to all of your fields even if they have different types. Vinyl expects your fields to be next to each other in a single vinyl-style record, whereas with island your different fields can be far from each other, at different depths within your existing data model. For example, one of them could be the first field of a record, while another is at key `"foo"` within a `Map`, on the `Left` side of an `Either`, in the second field of this same record.
 
 Vinyl's `f`
 ---
