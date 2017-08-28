@@ -17,10 +17,12 @@ Island borrows [vinyl](https://hackage.haskell.org/package/vinyl)'s idea of wrap
     incrementAll :: MyRecord -> MyRecord
     incrementAll = over _LeafWrapped (map1 incrementOne . reifyNum)
       where
+        -- check that Int and Double both have a Num instance
         reifyNum :: LeafWrapped MyRecord Identity
                  -> LeafWrapped MyRecord (Dict Num)
         reifyNum = reifyConstraint (Proxy @Num)
 
+        -- pattern-matching on the Dict constructor brings the Num constraint into scope
         incrementOne :: Dict Num a -> Identity a
         incrementOne (Dict x) = Identity (x + 1)
 
