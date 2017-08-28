@@ -5,6 +5,25 @@ Island
 
 Island borrows [vinyl](https://hackage.haskell.org/package/vinyl)'s idea of wrapping an `f` around every field, and applies it to your existing Plain Old Algebraic Datatypes (POADs). The `f` allows you to apply the same transformation to all of your fields even if they have different types. Vinyl expects your fields to be next to each other in a single vinyl-style record, whereas with island your different fields can be far from each other, at different depths within your existing data model. For example, one of them could be the first field of a record, while another is at key `"foo"` within a `Map`, on the `Left` side of an `Either`, in the second field of this same record.
 
+    data MyRecord = MyRecord
+      { field1 :: Int
+      , field2 :: Either (Map String Double) Whatever
+      }
+    makeStructured ''MyRecord
+
+    -- |
+    -- >>> incrementAll (MyRecord 42 (Map.fromList [("foo",0.5)]))
+    -- MyRecord 43 (Map.fromList ["foo",
+    incrementAll :: MyRecord -> MyRecord
+    incrementAll = over _LeafWrapped (map1 incrementOne . reifyNum)
+      where
+        reifyNum :: LeafWrapped MyRecord Identity
+                 -> LeafWrapped MyRecord (Dict Num)
+        reifyNum = reifyConstraint (Proxy @Num)
+
+        incrementOne :: Num a => Dict Num a -> Identity a
+        incrementOne (Dict x) = Identity (x + 1)
+
 Vinyl's `f`
 ---
 
