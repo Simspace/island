@@ -3,21 +3,20 @@
 Island
 ===
 
-Island borrows [vinyl](https://hackage.haskell.org/package/vinyl)'s idea of wrapping an `f` around every field, and applies it to more complex data structures than just flat records and co-records. Don't worry, you can use island with your existing Plain Old Algebraic Datatypes (POADs), you don't need to rewrite your codebase to use our fancy types everywhere.
+Island borrows [vinyl](https://hackage.haskell.org/package/vinyl)'s idea of wrapping an `f` around every field, and applies it to more complex data structures than just flat records. Don't worry, you can use island with your existing Plain Old Algebraic Datatypes (POADs), you don't need to rewrite your codebase to use our fancy types everywhere.
 
-Vinyl Recap
+Vinyl's `f`
 ---
 
 Vinyl's `HList` is a generalized tuple with N fields. It is parameterized by a list of types `ts`. If `fold` worked at the type level, we could define it as follows.
 
     type HList ts = fold (,) () ts
 
-Vinyl's `Rec` is also a generalized tuple with N fields, and its `CoRec` is a generalized Either with N alternatives. We will use "shape" as a generic term for either `Rec` or `CoRec`, and the word "pieces" as a generic term for that shape's fields or alternatives, as appropriate. In addition to `ts`, those two shapes have an extra type parameter `f` which they apply to every piece. If `fmap` also worked at the type level, we could define them as follows.
+Vinyl's `Rec` is also a generalized tuple with N fields. It differs from `HList` in that it has an extra type parameter `f` which it applies to every field. If `fmap` also worked at the type level, we could define it as follows.
 
-    type Rec   f ts = fold (,)    ()   (fmap f ts)
-    type CoRec f ts = fold Either Void (fmap f ts)
+    type Rec f ts = fold (,)    ()   (fmap f ts)
 
-This extra `f` makes it possible to manipulate all the pieces uniformly even though they have different types. For example, we cannot use `fmap show` to convert an `HList '[Int, Double]` into an `HList '[String, String]`, but we can use `rmap` to convert a `Rec (Dict Show) '[Int, Double]` into a `Rec (Const String) '[Int, Double]`.
+This extra `f` makes it possible to manipulate all the fields uniformly even though they have different types. For example, we cannot use `fmap show` to convert an `HList '[Int, Double]` into an `HList '[String, String]`, but we can use `rmap` to convert a `Rec (Dict Show) '[Int, Double]` into a `Rec (Const String) '[Int, Double]`.
 
     -- |
     -- >>> fmap show xs
@@ -57,7 +56,7 @@ We are again interested in the changed fields, and it seems like we should be ab
 
 Unfortunately, the `Const Bool` around each `RGB (Const Bool)` means we'll only have a single `Bool` describing each `RGB` field, instead of the three `Bool`s per `RGB` field we would like to have. This is because vinyl is designed to work on flat records whose data is in their immediate fields, not on records whose fields contain nested records.
 
-Vinyl allows us to work on pieces uniformly, as long as those pieces are the immediate children of a record or a sum. Island improves upon vinyl by providing new shapes based on a tree of types instead of a flat list of types. This allows us to uniformly manipulate the `Word8`s and the `Bool` even though they live at different depths.
+Vinyl allows us to work uniformly on a number of heterogenous values, but only if those values are next to each other in a record. Island improves upon vinyl by allowing you to work uniformly on the fields of your existing POADs, such as the `Word8`s and the `Bool` of our Gradient type, even though they live at different depths.
 
 POAD support
 ---
