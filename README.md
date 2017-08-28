@@ -14,7 +14,7 @@ Vinyl's `HList` is a generalized tuple with N fields. It is parameterized by a l
 
 Vinyl's `Rec` is also a generalized tuple with N fields. It differs from `HList` in that it has an extra type parameter `f` which it applies to every field. If `fmap` also worked at the type level, we could define it as follows.
 
-    type Rec f ts = fold (,)    ()   (fmap f ts)
+    type Rec f ts = fold (,) () (fmap f ts)
 
 This extra `f` makes it possible to manipulate all the fields uniformly even though they have different types. For example, we cannot use `fmap show` to convert an `HList '[Int, Double]` into an `HList '[String, String]`, but we can use `rmap` to convert a `Rec (Dict Show) '[Int, Double]` into a `Rec (Const String) '[Int, Double]`.
 
