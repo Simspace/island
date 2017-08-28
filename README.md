@@ -28,7 +28,7 @@ This extra `f` makes it possible to manipulate all the fields uniformly even tho
     -- >>> rmap (\case {Dict x -> Const (show x)}) ys
     -- Const "42" :& Const "0.5" :& RNil
     ys :: Rec (Dict Show) '[Int, Double]
-    ys = Dict 42 :& 0.5 :& RNil
+    ys = Dict 42 :& Dict 0.5 :& RNil
 
 Vinyl Limitations
 ---
