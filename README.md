@@ -21,7 +21,7 @@ Island borrows [vinyl](https://hackage.haskell.org/package/vinyl)'s idea of wrap
                  -> LeafWrapped MyRecord (Dict Num)
         reifyNum = reifyConstraint (Proxy @Num)
 
-        incrementOne :: Num a => Dict Num a -> Identity a
+        incrementOne :: Dict Num a -> Identity a
         incrementOne (Dict x) = Identity (x + 1)
 
 Vinyl's `f`
