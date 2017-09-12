@@ -3,6 +3,11 @@
 Island
 ===
 
+Island is a collection of generic types and algorithms which are intended to work on your existing POADs (Plain Old Algebraic Datatypes). The intention is to make it easy for you to refactor your data model to match your changing requirements, without having to worry about having to reimplement the following algorithms each time you make a change.
+
+* a generic type for patches, a generic diff algorithm to obtain them, and a generic patching algorithm to apply them
+* a generic type for pointing at a deeply-nested field, to locate an error for example
+
 FAQ
 ---
 
