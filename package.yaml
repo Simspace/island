@@ -8,6 +8,7 @@ default-extensions:
   - ConstraintKinds
   - MultiParamTypeClasses
   - ScopedTypeVariables
+  - TypeApplications
   - TypeFamilies
 
 ghc-options:
