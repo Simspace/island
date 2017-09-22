@@ -25,9 +25,9 @@ class Transform a b where
   type Incompatible a
 
   diff    :: a -> b -> Patch a b
-  invert  :: Patch a b -> Patch b a
-  apply   :: Patch a b -> a         -> Either (Incompatible a) b
-  compose :: Patch a b -> Patch b c -> Either (Incompatible b) (Patch a c)
+  invert  :: proxyA a -> proxyB b             -> Patch a b -> Patch b a
+  apply   :: proxyB b                         -> Patch a b -> a         -> Either (Incompatible a) b
+  compose :: proxyA a -> proxyB b -> proxyC c -> Patch a b -> Patch b c -> Either (Incompatible b) (Patch a c)
 
 
 -- * Simplified types
@@ -42,14 +42,21 @@ class Transform a b where
 type Transform' a = Transform a a
 type Patch'     a = Patch     a a
 
-diff' :: forall a. Transform' a => a -> a -> Patch' a
-diff' = diff @a @a
+diff' :: Transform' a
+      => a -> a -> Patch' a
+diff' = diff
 
-invert' :: forall a. Transform' a => Patch' a -> Patch' a
-invert' = invert @a @a
+invert' :: Transform' a
+        => proxy a
+        -> Patch' a -> Patch' a
+invert' proxy = invert proxy proxy
 
-apply' :: forall a. Transform' a => Patch' a -> a -> Either (Incompatible a) a
-apply' = apply @a @a
+apply' :: Transform' a
+       => proxy a
+       -> Patch' a -> a -> Either (Incompatible a) a
+apply' = apply
 
-compose' :: forall a. Transform' a => Patch' a -> Patch' a -> Either (Incompatible a) (Patch' a)
-compose' = compose @a @a @a
+compose' :: Transform' a
+         => proxy a
+         -> Patch' a -> Patch' a -> Either (Incompatible a) (Patch' a)
+compose' proxy = compose proxy proxy proxy

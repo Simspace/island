@@ -4,11 +4,9 @@ maintainer: SimSpace
 license: AllRightsReserved
 
 default-extensions:
-  - AllowAmbiguousTypes
   - ConstraintKinds
   - MultiParamTypeClasses
   - ScopedTypeVariables
-  - TypeApplications
   - TypeFamilies
 
 ghc-options:
