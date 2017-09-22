@@ -1,5 +1,7 @@
 module Island.Diff where
 
+import Data.Bifunctor
+
 
 -- | A 'Patch' can transform an 'x' into a 'y', and then (once 'invert'ed) back to the original 'x'.
 --
@@ -89,3 +91,17 @@ instance Eq a => Diff (Atomic a) where
   invert = atomicInvert
   apply pAB = fmap Atomic . atomicApply pAB . unAtomic
   compose = atomicCompose
+
+
+-- Product types
+
+instance (Diff a, Diff b) => Diff (a, b) where
+  type Patch        (a, b) = (Patch a, Patch b)
+  type Incompatible (a, b) = Either (Incompatible a) (Incompatible b)
+
+  diff (x1, x2) (y1, y2) = (diff x1 y1, diff x2 y2)
+  invert (p1, p2) = (invert @a p1, invert @b p2)
+  apply (p1, p2) (x1, x2) = (,) <$> first Left  (apply p1 x1)
+                                <*> first Right (apply p2 x2)
+  compose (pXY1, pXY2) (pYZ1, pYZ2) = (,) <$> first Left  (compose @a pXY1 pYZ1)
+                                          <*> first Right (compose @b pXY2 pYZ2)
