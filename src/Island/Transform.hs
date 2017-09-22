@@ -1,55 +1,37 @@
 module Island.Transform where
 
 
--- | A 'Patch' can transform an 'a' into a 'b', and then (once 'invert'ed) back to the original 'a'.
+-- | A 'Patch' can transform an 'x' into a 'y', and then (once 'invert'ed) back to the original 'x'.
 --
--- Applying a 'Patch' on the 'a' from which it was created using 'diff' will always succeed and will produce the 'b'
--- which was given to 'diff', otherwise it might produce a different 'b', or it might fail if the given 'a' is
+-- Applying a 'Patch' on the 'x' from which it was created using 'diff' will always succeed and will produce the 'y'
+-- which was given to 'diff', otherwise it might produce a different value, or it might fail if the given 'x' is
 -- 'Incompatible' with the requested change. Implementations which always succeed should set 'Incompatible' to 'Void'.
 --
--- 'compose' is useful to convert between incremental backups and differential backups. If you have a full backup of 'a'
--- and you also want to be able to restore to two later points 'b' and to 'c', you can either use incremental backups by
--- storing a @Patch a b@ and a @Patch b c@, or differential backups by storing @Patch a b@ and @Patch a c@. You can
--- convert from incremental backups to differential backups by composing your @Patch a b@ and your @Patch b c@ into a
--- @Patch a c@. To convert differential backups into incremental backups, remember that each patch can be 'invert'ed, so
--- we also have a @Patch c a@. Compose it with your @patch a b@ to obtain a @Patch c b@, and 'invert' it to get a @Patch
--- b c@.
+-- 'compose' is useful to convert between incremental backups and differential backups. If you have a full backup of 'x'
+-- and you also want to be able to restore to two later points 'y' and 'z', you can either use incremental backups by
+-- storing @diff x y@ and @diff y z@, or differential backups by storing @diff x y@ and @diff x z@. You can convert from
+-- incremental backups to differential backups by composing your @diff x y@ and your @diff y z@ into a 'Patch'
+-- corresponding to @diff x z@. To convert differential backups into incremental backups, remember that each patch can
+-- be 'invert'ed, so you also have @diff z x@. Compose it with your @diff x y@ to obtain @diff z y@, and 'invert' it to
+-- get @diff y z@.
 --
 -- Expressed as laws:
 --
--- > diff a b `apply` a = Right b
--- > invert (diff a b) = diff b a
--- > diff a b `compose` diff b c = Right (diff a c)
-class Transform a b where
-  type Patch        a b
+-- > diff x y `apply` x = Right y
+-- > invert (diff x y) = diff y x
+-- > diff x y `compose` diff y z = Right (diff x z)
+class Transform a where
+  type Patch        a
   type Incompatible a
 
-  diff    :: a -> b -> Patch a b
-  invert  :: Patch a b -> Patch b a
-  apply   :: Patch a b -> a         -> Either (Incompatible a) b
-  compose :: Patch a b -> Patch b c -> Either (Incompatible b) (Patch a c)
+  -- | @x -> y -> diff x y@
+  diff    :: a -> a -> Patch a
 
+  -- | @diff x y -> diff y x@
+  invert  :: Patch a -> Patch a
 
--- * Simplified types
+  -- | @diff x y -> x -> Either (Incompatible x) y@
+  apply   :: Patch a -> a -> Either (Incompatible a) a
 
--- $
--- While 'Transform' has more precise types, 'Transform'' is more common because applying a 'Patch' to a value typically
--- doesn't change its type. For short, we will use "update" to mean "applying a 'Patch'" from now on.
---
--- Using @Foo'@ for a type synonym which has fewer type parameters than @Foo@ is a naming convention taken from lens.
--- Yes, we're aware that this makes the more common case look less nice than the uncommon case.
-
-type Transform' a = Transform a a
-type Patch'     a = Patch     a a
-
-diff' :: forall a. Transform' a => a -> a -> Patch' a
-diff' = diff @a @a
-
-invert' :: forall a. Transform' a => Patch' a -> Patch' a
-invert' = invert @a @a
-
-apply' :: forall a. Transform' a => Patch' a -> a -> Either (Incompatible a) a
-apply' = apply @a @a
-
-compose' :: forall a. Transform' a => Patch' a -> Patch' a -> Either (Incompatible a) (Patch' a)
-compose' = compose @a @a @a
+  -- | @diff x y -> diff y z -> Either (Incompatible y) (diff x z)@
+  compose :: Patch a -> Patch a -> Either (Incompatible a) (Patch a)
