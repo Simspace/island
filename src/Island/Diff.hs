@@ -35,3 +35,57 @@ class Diff a where
 
   -- | @diff x y -> diff y z -> Either (Incompatible y) (diff x z)@
   compose :: Patch a -> Patch a -> Either (Incompatible a) (Patch a)
+
+
+-- * Atomic types
+
+-- $
+-- For non-containers, the 'Diff' implementation is boring: a 'Patch' stores the new value, and also the old value so we
+-- can go in the other direction. One important design decision is: do we want the update to succeed when applied to a
+-- value which differs from the old value we recored? In this implementation, the update fails with a 'Mismatch' error.
+-- See the 'Diff' instance for 'Last' if you want an update which always succeeds.
+--
+-- TODO: implement the 'Diff' instance for 'Last'.
+--
+-- Use @deriveAtomicDiff ''MyType@ to give derive a 'Diff' instance for a non-container type 'MyType'.
+--
+-- TODO: implement 'deriveAtomicDiff' using Template Haskell.
+
+data Replace a = Replace
+  { replaceOld :: a
+  , replaceNew :: a
+  } deriving Show
+
+data Mismatch a = Mismatch
+  { mismatchExpected :: a
+  , mismatchActual   :: a
+  } deriving Show
+
+atomicDiff :: a -> a -> Replace a
+atomicDiff = Replace
+
+atomicInvert :: Replace a -> Replace a
+atomicInvert (Replace x y) = Replace y x
+
+atomicApply :: Eq a => Replace a -> a -> Either (Mismatch a) a
+atomicApply (Replace expectedX y) actualX | actualX == expectedX = Right y
+                                          | otherwise            = Left (Mismatch expectedX actualX)
+
+atomicCompose :: Eq a => Replace a -> Replace a -> Either (Mismatch a) (Replace a)
+atomicCompose (Replace x actualY) (Replace expectedY z) | actualY == expectedY = Right (Replace x z)
+                                                        | otherwise            = Left (Mismatch expectedY actualY)
+
+
+-- | A newtype wrapper which gives an atomic 'Diff' instance to any 'Eq'.
+newtype Atomic a = Atomic
+  { unAtomic :: a
+  } deriving Show
+
+instance Eq a => Diff (Atomic a) where
+  type Patch        (Atomic a) = Replace  a
+  type Incompatible (Atomic a) = Mismatch a
+
+  diff (Atomic x) (Atomic y) = atomicDiff x y
+  invert = atomicInvert
+  apply pAB = fmap Atomic . atomicApply pAB . unAtomic
+  compose = atomicCompose

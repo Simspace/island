@@ -6,6 +6,7 @@ license: AllRightsReserved
 default-extensions:
   - AllowAmbiguousTypes
   - ConstraintKinds
+  - FlexibleContexts
   - MultiParamTypeClasses
   - ScopedTypeVariables
   - TypeApplications
