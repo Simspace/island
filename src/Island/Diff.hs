@@ -1,4 +1,4 @@
-module Island.Transform where
+module Island.Diff where
 
 
 -- | A 'Patch' can transform an 'x' into a 'y', and then (once 'invert'ed) back to the original 'x'.
@@ -20,7 +20,7 @@ module Island.Transform where
 -- > diff x y `apply` x = Right y
 -- > invert (diff x y) = diff y x
 -- > diff x y `compose` diff y z = Right (diff x z)
-class Transform a where
+class Diff a where
   type Patch        a
   type Incompatible a
 
