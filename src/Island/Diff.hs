@@ -2,6 +2,7 @@ module Island.Diff where
 
 import Control.Monad.Except
 import Data.Bifunctor
+import Data.Void
 
 
 -- | A 'Patch' can transform an 'x' into a 'y', and then (once 'invert'ed) back to the original 'x'.
@@ -38,6 +39,24 @@ class Eq a => Diff a where
 
   -- | @diff x y -> diff y z -> Either (Incompatible y) (diff x z)@
   compose :: Patch a -> Patch a -> Either (Incompatible a) (Patch a)
+
+instance Diff Void where
+  type Patch Void        = ()
+  type Incompatible Void = Void
+
+  diff _ _ = ()
+  invert () = ()
+  apply () = pure
+  compose () () = pure ()
+
+instance Diff () where
+  type Patch ()        = ()
+  type Incompatible () = Void
+
+  diff _ _ = ()
+  invert () = ()
+  apply () () = pure ()
+  compose () () = pure ()
 
 
 -- * Atomic types
