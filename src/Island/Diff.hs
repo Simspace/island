@@ -1,5 +1,6 @@
 module Island.Diff where
 
+import Control.Monad.Except
 import Data.Bifunctor
 
 
@@ -22,7 +23,7 @@ import Data.Bifunctor
 -- > diff x y `apply` x = Right y
 -- > invert (diff x y) = diff y x
 -- > diff x y `compose` diff y z = Right (diff x z)
-class Diff a where
+class Eq a => Diff a where
   type Patch        a
   type Incompatible a
 
@@ -53,27 +54,27 @@ class Diff a where
 --
 -- TODO: implement 'deriveAtomicDiff' using Template Haskell.
 
-data Replace a = Replace
+data Replace a b = Replace
   { replaceOld :: a
-  , replaceNew :: a
+  , replaceNew :: b
   } deriving Show
 
-data Mismatch a = Mismatch
+data Mismatch a b = Mismatch
   { mismatchExpected :: a
-  , mismatchActual   :: a
+  , mismatchActual   :: b
   } deriving Show
 
-atomicDiff :: a -> a -> Replace a
+atomicDiff :: a -> b -> Replace a b
 atomicDiff = Replace
 
-atomicInvert :: Replace a -> Replace a
+atomicInvert :: Replace a b -> Replace b a
 atomicInvert (Replace x y) = Replace y x
 
-atomicApply :: Eq a => Replace a -> a -> Either (Mismatch a) a
+atomicApply :: Eq a => Replace a b -> a -> Either (Mismatch a a) b
 atomicApply (Replace expectedX y) actualX | actualX == expectedX = Right y
                                           | otherwise            = Left (Mismatch expectedX actualX)
 
-atomicCompose :: Eq a => Replace a -> Replace a -> Either (Mismatch a) (Replace a)
+atomicCompose :: Eq b => Replace a b -> Replace b c -> Either (Mismatch b b) (Replace a c)
 atomicCompose (Replace x actualY) (Replace expectedY z) | actualY == expectedY = Right (Replace x z)
                                                         | otherwise            = Left (Mismatch expectedY actualY)
 
@@ -81,11 +82,11 @@ atomicCompose (Replace x actualY) (Replace expectedY z) | actualY == expectedY =
 -- | A newtype wrapper which gives an atomic 'Diff' instance to any 'Eq'.
 newtype Atomic a = Atomic
   { unAtomic :: a
-  } deriving Show
+  } deriving (Show, Eq)
 
 instance Eq a => Diff (Atomic a) where
-  type Patch        (Atomic a) = Replace  a
-  type Incompatible (Atomic a) = Mismatch a
+  type Patch        (Atomic a) = Replace  a a
+  type Incompatible (Atomic a) = Mismatch a a
 
   diff (Atomic x) (Atomic y) = atomicDiff x y
   invert = atomicInvert
@@ -105,3 +106,69 @@ instance (Diff a, Diff b) => Diff (a, b) where
                                 <*> first Right (apply p2 x2)
   compose (pXY1, pXY2) (pYZ1, pYZ2) = (,) <$> first Left  (compose @a pXY1 pYZ1)
                                           <*> first Right (compose @b pXY2 pYZ2)
+
+-- * Sum types
+
+data PatchEither a b
+  = PatchLeft   (Patch a)
+  | PatchRight  (Patch b)
+  | LeftToRight (Replace a b)
+  | RightToLeft (Replace b a)
+
+data IncompatibleEither a b
+  = IncompatibleLeft  (Incompatible a)
+  | IncompatibleRight (Incompatible b)
+  | UnexpectedLeft
+  | UnexpectedRight
+  | MismatchedLeft  (Mismatch a a)
+  | MismatchedRight (Mismatch b b)
+
+instance (Diff a, Diff b) => Diff (Either a b) where
+  type Patch        (Either a b) = PatchEither        a b
+  type Incompatible (Either a b) = IncompatibleEither a b
+
+  diff (Left  x) (Left  y) = PatchLeft   (diff x y)
+  diff (Left  x) (Right y) = LeftToRight (atomicDiff x y)
+  diff (Right x) (Left  y) = RightToLeft (atomicDiff x y)
+  diff (Right x) (Right y) = PatchRight  (diff x y)
+
+  invert (PatchLeft  p)  = PatchLeft   (invert @a p)
+  invert (PatchRight p)  = PatchRight  (invert @b p)
+  invert (LeftToRight p) = RightToLeft (atomicInvert p)
+  invert (RightToLeft p) = LeftToRight (atomicInvert p)
+
+  apply (PatchLeft   p) (Left  x) = bimap IncompatibleLeft  Left  (apply p x)
+  apply (PatchRight  p) (Right x) = bimap IncompatibleRight Right (apply p x)
+  apply (LeftToRight p) (Left  x) = bimap MismatchedLeft    Right (atomicApply p x)
+  apply (RightToLeft p) (Right x) = bimap MismatchedRight   Left  (atomicApply p x)
+  apply _               (Left  _) = throwError UnexpectedLeft
+  apply _               (Right _) = throwError UnexpectedRight
+
+  compose (PatchLeft pXY) (PatchLeft pYZ)
+    = bimap IncompatibleLeft PatchLeft (compose @a pXY pYZ)
+  compose (PatchLeft pXY) (LeftToRight (Replace y z))
+    = do let pYX = invert @a pXY
+         x <- first IncompatibleLeft (apply @a pYX y)
+         pure $ LeftToRight (Replace x z)
+  compose (PatchRight pXY) (PatchRight pYZ)
+    = bimap IncompatibleRight PatchRight (compose @b pXY pYZ)
+  compose (PatchRight pXY) (RightToLeft (Replace y z))
+    = do let pYX = invert @b pXY
+         x <- first IncompatibleRight (apply @b pYX y)
+         pure $ RightToLeft (Replace x z)
+  compose (LeftToRight (Replace x y)) (PatchRight pYZ)
+    = do z <- first IncompatibleRight (apply @b pYZ y)
+         pure $ LeftToRight (Replace x z)
+  compose (LeftToRight (Replace x actualY)) (RightToLeft (Replace expectedY z))
+    | actualY == expectedY = pure $ PatchLeft (diff x z)
+    | otherwise            = throwError $ MismatchedRight (Mismatch expectedY actualY)
+  compose (RightToLeft (Replace x y)) (PatchLeft pYZ)
+    = do z <- first IncompatibleLeft (apply @a pYZ y)
+         pure $ RightToLeft (Replace x z)
+  compose (RightToLeft (Replace x actualY)) (LeftToRight (Replace expectedY z))
+    | actualY == expectedY = pure $ PatchRight (diff x z)
+    | otherwise            = throwError $ MismatchedLeft (Mismatch expectedY actualY)
+  compose (PatchLeft   _) _ = throwError UnexpectedLeft
+  compose (PatchRight  _) _ = throwError UnexpectedRight
+  compose (LeftToRight _) _ = throwError UnexpectedRight
+  compose (RightToLeft _) _ = throwError UnexpectedLeft

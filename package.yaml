@@ -20,6 +20,7 @@ ghc-options:
 
 dependencies:
   - base
+  - mtl
 
 library:
   source-dirs: src
