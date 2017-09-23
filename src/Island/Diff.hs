@@ -238,10 +238,10 @@ data PatchEither a b
 data IncompatibleEither a b
   = IncompatibleLeft  (Incompatible a)
   | IncompatibleRight (Incompatible b)
-  | UnexpectedLeft
-  | UnexpectedRight
   | MismatchedLeft  (Mismatch a a)
   | MismatchedRight (Mismatch b b)
+  | UnexpectedLeft
+  | UnexpectedRight
 
 instance (Diff a, Diff b) => Diff (Either a b) where
   type Patch        (Either a b) = PatchEither        a b
