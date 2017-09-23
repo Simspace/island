@@ -109,6 +109,15 @@ instance (Diff a, Diff b) => Diff (a, b) where
 
 -- * Sum types
 
+-- $
+-- Sum types are the main reason updates can fail: if we have a 'Patch' which expects a @Left a@ but we 'apply' it to a
+-- @Right b@, we have no choice but to fail with an 'UnexpectedRight' error. Another possibility is a 'Patch' which
+-- switches from one constructor to another, 'LeftToRight' for example. In this case, the values are so unrelated that
+-- we have no choice but to store the entire new value, and also the old value so we can go in the other direction.
+-- Since we have an entire replacement value we could use as the answer, we again have the choice to succeed or to fail
+-- if we apply such a constructor-swapping 'Patch' to a value which differs from the old value we recored. In this
+-- implementation, for consistency with the atomic case, we fail with a 'MismatchedLeft' if that occurs.
+
 data PatchEither a b
   = PatchLeft   (Patch a)
   | PatchRight  (Patch b)
