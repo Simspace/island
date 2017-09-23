@@ -3,6 +3,8 @@ module Island.Diff where
 import Control.Monad.Except
 import Data.Bifunctor
 import Data.Void
+import Generics.Eot (HasEot, Eot, fromEot, toEot)
+import qualified Generics.Eot as Eot
 
 
 -- | A 'Patch' can transform an 'x' into a 'y', and then (once 'invert'ed) back to the original 'x'.
@@ -39,6 +41,25 @@ class Eq a => Diff a where
 
   -- | @diff x y -> diff y z -> Either (Incompatible y) (diff x z)@
   compose :: Patch a -> Patch a -> Either (Incompatible a) (Patch a)
+
+  default diff :: (HasEot a, Diff (Eot a))
+               => a -> a -> Patch (Eot a)
+  diff = genericDiff
+
+  default invert :: (HasEot a, Diff (Eot a))
+                 => Patch (Eot a) -> Patch (Eot a)
+  invert = genericInvert @a
+
+  default apply :: (HasEot a, Diff (Eot a))
+                => Patch (Eot a) -> a -> Either (Incompatible (Eot a)) a
+  apply = genericApply
+
+  default compose :: (HasEot a, Diff (Eot a))
+                  => Patch (Eot a)
+                  -> Patch (Eot a)
+                  -> Either (Incompatible (Eot a))
+                            (Patch (Eot a))
+  compose = genericCompose @a
 
 instance Diff Void where
   type Patch Void        = ()
@@ -111,6 +132,53 @@ instance Eq a => Diff (Atomic a) where
   invert = atomicInvert
   apply pAB = fmap Atomic . atomicApply pAB . unAtomic
   compose = atomicCompose
+
+
+-- * Algebraic data types
+
+-- $
+-- To 'Diff' your own records and sum types, derive 'Generic' and write a mostly-empty 'Diff' instance for your type.
+-- "Mostly", because it's not possible to give a default implementation for the associated type, so you'll have to write
+-- something like this:
+--
+-- > instance Diff MyType where
+-- >   type Patch MyType        = Patch        (Eot MyType)
+-- >   type Incompatible MyType = Incompatible (Eot MyType)
+--
+-- And then your type will use a generic 'Patch' representation based on an isomorphic either-of-tuples.
+
+instance Diff Eot.Void where
+  type Patch Eot.Void        = ()
+  type Incompatible Eot.Void = Eot.Void
+
+  diff _ _ = ()
+  invert () = ()
+  apply () = pure
+  compose () () = pure ()
+
+genericDiff :: (HasEot a, Diff (Eot a))
+            => a -> a -> Patch (Eot a)
+genericDiff x y = diff (toEot x) (toEot y)
+
+genericInvert :: forall a. (HasEot a, Diff (Eot a))
+              => Patch (Eot a) -> Patch (Eot a)
+genericInvert = invert @(Eot a)
+
+genericApply :: (HasEot a, Diff (Eot a))
+             => Patch (Eot a) -> a -> Either (Incompatible (Eot a)) a
+genericApply p x = fromEot <$> apply p (toEot x)
+
+genericCompose :: forall a. (HasEot a, Diff (Eot a))
+               => Patch (Eot a)
+               -> Patch (Eot a)
+               -> Either (Incompatible (Eot a))
+                         (Patch (Eot a))
+genericCompose = compose @(Eot a)
+
+
+instance Diff Bool where
+  type Patch Bool        = Patch        (Eot Bool)
+  type Incompatible Bool = Incompatible (Eot Bool)
 
 
 -- Product types
