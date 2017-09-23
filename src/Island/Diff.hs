@@ -269,25 +269,25 @@ instance (Diff a, Diff b) => Diff (Either a b) where
   compose (PatchLeft pXY) (LeftToRight (Replace y z))
     = do let pYX = invert @a pXY
          x <- first IncompatibleLeft (apply @a pYX y)
-         pure $ LeftToRight (Replace x z)
+         pure . LeftToRight $ Replace x z
   compose (PatchRight pXY) (PatchRight pYZ)
     = bimap IncompatibleRight PatchRight (compose @b pXY pYZ)
   compose (PatchRight pXY) (RightToLeft (Replace y z))
     = do let pYX = invert @b pXY
          x <- first IncompatibleRight (apply @b pYX y)
-         pure $ RightToLeft (Replace x z)
+         pure . RightToLeft $ Replace x z
   compose (LeftToRight (Replace x y)) (PatchRight pYZ)
     = do z <- first IncompatibleRight (apply @b pYZ y)
-         pure $ LeftToRight (Replace x z)
+         pure . LeftToRight $ Replace x z
   compose (LeftToRight (Replace x actualY)) (RightToLeft (Replace expectedY z))
-    | actualY == expectedY = pure $ PatchLeft (diff x z)
-    | otherwise            = throwError $ MismatchedRight (Mismatch expectedY actualY)
+    | actualY == expectedY = pure . PatchLeft $ diff x z
+    | otherwise            = throwError . MismatchedRight $ Mismatch expectedY actualY
   compose (RightToLeft (Replace x y)) (PatchLeft pYZ)
     = do z <- first IncompatibleLeft (apply @a pYZ y)
-         pure $ RightToLeft (Replace x z)
+         pure . RightToLeft $ Replace x z
   compose (RightToLeft (Replace x actualY)) (LeftToRight (Replace expectedY z))
-    | actualY == expectedY = pure $ PatchRight (diff x z)
-    | otherwise            = throwError $ MismatchedLeft (Mismatch expectedY actualY)
+    | actualY == expectedY = pure . PatchRight $ diff x z
+    | otherwise            = throwError . MismatchedLeft $ Mismatch expectedY actualY
   compose (PatchLeft   _) _ = throwError UnexpectedLeft
   compose (PatchRight  _) _ = throwError UnexpectedRight
   compose (LeftToRight _) _ = throwError UnexpectedRight
