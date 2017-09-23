@@ -24,6 +24,7 @@ dependencies:
   - base
   - generics-eot
   - mtl
+  - text
 
 library:
   source-dirs: src

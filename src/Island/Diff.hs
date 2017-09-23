@@ -2,6 +2,7 @@ module Island.Diff where
 
 import Control.Monad.Except
 import Data.Bifunctor
+import Data.Text
 import Data.Void
 import Generics.Eot (HasEot, Eot, fromEot, toEot)
 import qualified Generics.Eot as Eot
@@ -117,6 +118,25 @@ atomicApply (Replace expectedX y) actualX | actualX == expectedX = Right y
 atomicCompose :: Eq b => Replace a b -> Replace b c -> Either (Mismatch b b) (Replace a c)
 atomicCompose (Replace x actualY) (Replace expectedY z) | actualY == expectedY = Right (Replace x z)
                                                         | otherwise            = Left (Mismatch expectedY actualY)
+
+
+instance Diff Int where
+  type Patch        Int = Patch        (Atomic Int)
+  type Incompatible Int = Incompatible (Atomic Int)
+
+  diff = atomicDiff
+  invert = atomicInvert
+  apply = atomicApply
+  compose = atomicCompose
+
+instance Diff Text where
+  type Patch        Text = Patch        (Atomic Text)
+  type Incompatible Text = Incompatible (Atomic Text)
+
+  diff = atomicDiff
+  invert = atomicInvert
+  apply = atomicApply
+  compose = atomicCompose
 
 
 -- | A newtype wrapper which gives an atomic 'Diff' instance to any 'Eq'.
