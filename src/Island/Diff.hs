@@ -166,6 +166,10 @@ instance Eq a => Diff (Atomic a) where
 -- >   type Incompatible MyType = Incompatible (Eot MyType)
 --
 -- And then your type will use a generic 'Patch' representation based on an isomorphic either-of-tuples.
+--
+-- Alternatively, use @deriveGenericDiff ''MyType@ to give derive the above.
+--
+-- TODO: implement 'deriveGenericDiff' using Template Haskell.
 
 instance Diff Eot.Void where
   type Patch Eot.Void        = ()
