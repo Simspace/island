@@ -1,7 +1,6 @@
 module Island.Diff where
 
-import Control.Monad.Except
-import Data.Bifunctor
+import Data.Monoid
 import Data.Text
 import Data.Void
 import Generics.Eot (HasEot, Eot, fromEot, toEot)
@@ -24,61 +23,34 @@ import qualified Generics.Eot as Eot
 --
 -- Expressed as laws:
 --
--- > diff x y `apply` x = Right y
--- > invert (diff x y) = diff y x
--- > diff x y `compose` diff y z = Right (diff x z)
-class Eq a => Diff a where
-  type Patch        a
-  type Incompatible a
+-- > diff x y `apply` x = y
+-- > apply mempty = id
+-- > apply (p <> q) = apply p >>> apply q
+class Monoid (Patch a) => Diff a where
+  type Patch a
 
-  -- | @x -> y -> diff x y@
-  diff    :: a -> a -> Patch a
-
-  -- | @diff x y -> diff y x@
-  invert  :: Patch a -> Patch a
-
-  -- | @diff x y -> x -> Either (Incompatible x) y@
-  apply   :: Patch a -> a -> Either (Incompatible a) a
-
-  -- | @diff x y -> diff y z -> Either (Incompatible y) (diff x z)@
-  compose :: Patch a -> Patch a -> Either (Incompatible a) (Patch a)
+  diff  :: a -> a -> Patch a
+  apply :: Patch a -> a -> a
 
   default diff :: (HasEot a, Diff (Eot a))
                => a -> a -> Patch (Eot a)
   diff = genericDiff
 
-  default invert :: (HasEot a, Diff (Eot a))
-                 => Patch (Eot a) -> Patch (Eot a)
-  invert = genericInvert @a
-
   default apply :: (HasEot a, Diff (Eot a))
-                => Patch (Eot a) -> a -> Either (Incompatible (Eot a)) a
+                => Patch (Eot a) -> a -> a
   apply = genericApply
 
-  default compose :: (HasEot a, Diff (Eot a))
-                  => Patch (Eot a)
-                  -> Patch (Eot a)
-                  -> Either (Incompatible (Eot a))
-                            (Patch (Eot a))
-  compose = genericCompose @a
-
 instance Diff Void where
-  type Patch Void        = ()
-  type Incompatible Void = Void
+  type Patch Void = ()
 
   diff _ _ = ()
-  invert () = ()
-  apply () = pure
-  compose () () = pure ()
+  apply () = id
 
 instance Diff () where
-  type Patch ()        = ()
-  type Incompatible () = Void
+  type Patch () = ()
 
   diff _ _ = ()
-  invert () = ()
-  apply () () = pure ()
-  compose () () = pure ()
+  apply () = id
 
 
 -- * Atomic types
@@ -95,48 +67,13 @@ instance Diff () where
 --
 -- TODO: implement 'deriveAtomicDiff' using Template Haskell.
 
-data Replace a b = Replace
-  { replaceOld :: a
-  , replaceNew :: b
-  } deriving Show
+atomicDiff :: Eq a => a -> a -> Last a
+atomicDiff a1 a2 | a1 == a2  = Last Nothing
+                 | otherwise = Last . Just $ a2
 
-data Mismatch a b = Mismatch
-  { mismatchExpected :: a
-  , mismatchActual   :: b
-  } deriving Show
-
-atomicDiff :: a -> b -> Replace a b
-atomicDiff = Replace
-
-atomicInvert :: Replace a b -> Replace b a
-atomicInvert (Replace x y) = Replace y x
-
-atomicApply :: Eq a => Replace a b -> a -> Either (Mismatch a a) b
-atomicApply (Replace expectedX y) actualX | actualX == expectedX = pure y
-                                          | otherwise            = throwError $ Mismatch expectedX actualX
-
-atomicCompose :: Eq b => Replace a b -> Replace b c -> Either (Mismatch b b) (Replace a c)
-atomicCompose (Replace x actualY) (Replace expectedY z) | actualY == expectedY = pure $ Replace x z
-                                                        | otherwise            = throwError $ Mismatch expectedY actualY
-
-
-instance Diff Int where
-  type Patch        Int = Patch        (Atomic Int)
-  type Incompatible Int = Incompatible (Atomic Int)
-
-  diff = atomicDiff
-  invert = atomicInvert
-  apply = atomicApply
-  compose = atomicCompose
-
-instance Diff Text where
-  type Patch        Text = Patch        (Atomic Text)
-  type Incompatible Text = Incompatible (Atomic Text)
-
-  diff = atomicDiff
-  invert = atomicInvert
-  apply = atomicApply
-  compose = atomicCompose
+atomicApply :: Last a -> a -> a
+atomicApply (Last (Just a))_ = a
+atomicApply (Last Nothing) a = a
 
 
 -- | A newtype wrapper which gives an atomic 'Diff' instance to any 'Eq'.
@@ -145,13 +82,23 @@ newtype Atomic a = Atomic
   } deriving (Show, Eq)
 
 instance Eq a => Diff (Atomic a) where
-  type Patch        (Atomic a) = Replace  a a
-  type Incompatible (Atomic a) = Mismatch a a
+  type Patch (Atomic a) = Last a
 
-  diff (Atomic x) (Atomic y) = atomicDiff x y
-  invert = atomicInvert
-  apply pAB = fmap Atomic . atomicApply pAB . unAtomic
-  compose = atomicCompose
+  diff (Atomic a1) (Atomic a2) = atomicDiff a1 a2
+  apply p = Atomic . atomicApply p . unAtomic
+
+
+instance Diff Int where
+  type Patch Int = Patch (Atomic Int)
+
+  diff = atomicDiff
+  apply = atomicApply
+
+instance Diff Text where
+  type Patch Text = Patch (Atomic Text)
+
+  diff = atomicDiff
+  apply = atomicApply
 
 
 -- * Algebraic data types
@@ -172,51 +119,32 @@ instance Eq a => Diff (Atomic a) where
 -- TODO: implement 'deriveGenericDiff' using Template Haskell.
 
 instance Diff Eot.Void where
-  type Patch Eot.Void        = ()
-  type Incompatible Eot.Void = Eot.Void
+  type Patch Eot.Void = ()
 
   diff _ _ = ()
-  invert () = ()
-  apply () = pure
-  compose () () = pure ()
+  apply () = id
 
 genericDiff :: (HasEot a, Diff (Eot a))
             => a -> a -> Patch (Eot a)
 genericDiff x y = diff (toEot x) (toEot y)
 
-genericInvert :: forall a. (HasEot a, Diff (Eot a))
-              => Patch (Eot a) -> Patch (Eot a)
-genericInvert = invert @(Eot a)
-
 genericApply :: (HasEot a, Diff (Eot a))
-             => Patch (Eot a) -> a -> Either (Incompatible (Eot a)) a
-genericApply p x = fromEot <$> apply p (toEot x)
-
-genericCompose :: forall a. (HasEot a, Diff (Eot a))
-               => Patch (Eot a)
-               -> Patch (Eot a)
-               -> Either (Incompatible (Eot a))
-                         (Patch (Eot a))
-genericCompose = compose @(Eot a)
+             => Patch (Eot a) -> a -> a
+genericApply p = fromEot . apply p . toEot
 
 
 instance Diff Bool where
-  type Patch Bool        = Patch        (Eot Bool)
-  type Incompatible Bool = Incompatible (Eot Bool)
+  type Patch Bool = Patch (Eot Bool)
 
 
 -- Product types
 
 instance (Diff a, Diff b) => Diff (a, b) where
-  type Patch        (a, b) = (Patch a, Patch b)
-  type Incompatible (a, b) = Either (Incompatible a) (Incompatible b)
+  type Patch (a, b) = (Patch a, Patch b)
 
-  diff (x1, x2) (y1, y2) = (diff x1 y1, diff x2 y2)
-  invert (p1, p2) = (invert @a p1, invert @b p2)
-  apply (p1, p2) (x1, x2) = (,) <$> (first Left  $ apply p1 x1)
-                                <*> (first Right $ apply p2 x2)
-  compose (pXY1, pXY2) (pYZ1, pYZ2) = (,) <$> (first Left  $ compose @a pXY1 pYZ1)
-                                          <*> (first Right $ compose @b pXY2 pYZ2)
+  diff (a1, b1) (a2, b2) = (diff a1 a2, diff b1 b2)
+  apply (a12, b12) (a1, b1) = (apply a12 a1, apply b12 b1)
+
 
 -- * Sum types
 
@@ -230,65 +158,24 @@ instance (Diff a, Diff b) => Diff (a, b) where
 -- implementation, for consistency with the atomic case, we fail with a 'MismatchedLeft' if that occurs.
 
 data PatchEither a b
-  = PatchLeft   (Patch a)
-  | PatchRight  (Patch b)
-  | LeftToRight (Replace a b)
-  | RightToLeft (Replace b a)
+  = ReplaceEither (Either a b)
+  | PatchEither (Patch a) (Patch b)
+deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
 
-data IncompatibleEither a b
-  = IncompatibleLeft  (Incompatible a)
-  | IncompatibleRight (Incompatible b)
-  | MismatchedLeft  (Mismatch a a)
-  | MismatchedRight (Mismatch b b)
-  | UnexpectedLeft
-  | UnexpectedRight
+instance (Diff a, Diff b) => Monoid (PatchEither a b) where
+  mempty = PatchEither mempty mempty
+  _                        `mappend` p@ReplaceEither {}  = p
+  ReplaceEither (Left  a2) `mappend` PatchEither a23 _   = ReplaceEither . Left  . apply a23 $ a2
+  ReplaceEither (Right b2) `mappend` PatchEither _   b23 = ReplaceEither . Right . apply b23 $ b2
+  PatchEither a12 b12      `mappend` PatchEither a23 b23 = PatchEither (a12 <> a23) (b12 <> b23)
 
 instance (Diff a, Diff b) => Diff (Either a b) where
-  type Patch        (Either a b) = PatchEither        a b
-  type Incompatible (Either a b) = IncompatibleEither a b
+  type Patch (Either a b) = PatchEither a b
 
-  diff (Left  x) (Left  y) = PatchLeft   $ diff x y
-  diff (Left  x) (Right y) = LeftToRight $ atomicDiff x y
-  diff (Right x) (Left  y) = RightToLeft $ atomicDiff x y
-  diff (Right x) (Right y) = PatchRight  $ diff x y
+  diff (Left  a1) (Left  a2) = PatchEither (diff a1 a2) mempty
+  diff (Right b1) (Right b2) = PatchEither mempty (diff b1 b2)
+  diff _          x          = ReplaceEither x
 
-  invert (PatchLeft  p)  = PatchLeft   $ invert @a p
-  invert (PatchRight p)  = PatchRight  $ invert @b p
-  invert (LeftToRight p) = RightToLeft $ atomicInvert p
-  invert (RightToLeft p) = LeftToRight $ atomicInvert p
-
-  apply (PatchLeft   p) (Left  x) = bimap IncompatibleLeft  Left  $ apply p x
-  apply (PatchRight  p) (Right x) = bimap IncompatibleRight Right $ apply p x
-  apply (LeftToRight p) (Left  x) = bimap MismatchedLeft    Right $ atomicApply p x
-  apply (RightToLeft p) (Right x) = bimap MismatchedRight   Left  $ atomicApply p x
-  apply _               (Left  _) = throwError UnexpectedLeft
-  apply _               (Right _) = throwError UnexpectedRight
-
-  compose (PatchLeft pXY) (PatchLeft pYZ)
-    = bimap IncompatibleLeft PatchLeft $ compose @a pXY pYZ
-  compose (PatchLeft pXY) (LeftToRight (Replace y z))
-    = do let pYX = invert @a pXY
-         x <- first IncompatibleLeft $ apply @a pYX y
-         pure . LeftToRight $ Replace x z
-  compose (PatchRight pXY) (PatchRight pYZ)
-    = bimap IncompatibleRight PatchRight $ compose @b pXY pYZ
-  compose (PatchRight pXY) (RightToLeft (Replace y z))
-    = do let pYX = invert @b pXY
-         x <- first IncompatibleRight $ apply @b pYX y
-         pure . RightToLeft $ Replace x z
-  compose (LeftToRight (Replace x y)) (PatchRight pYZ)
-    = do z <- first IncompatibleRight $ apply @b pYZ y
-         pure . LeftToRight $ Replace x z
-  compose (LeftToRight (Replace x actualY)) (RightToLeft (Replace expectedY z))
-    | actualY == expectedY = pure . PatchLeft $ diff x z
-    | otherwise            = throwError . MismatchedRight $ Mismatch expectedY actualY
-  compose (RightToLeft (Replace x y)) (PatchLeft pYZ)
-    = do z <- first IncompatibleLeft $ apply @a pYZ y
-         pure . RightToLeft $ Replace x z
-  compose (RightToLeft (Replace x actualY)) (LeftToRight (Replace expectedY z))
-    | actualY == expectedY = pure . PatchRight $ diff x z
-    | otherwise            = throwError . MismatchedLeft $ Mismatch expectedY actualY
-  compose (PatchLeft   _) _ = throwError UnexpectedLeft
-  compose (PatchRight  _) _ = throwError UnexpectedRight
-  compose (LeftToRight _) _ = throwError UnexpectedRight
-  compose (RightToLeft _) _ = throwError UnexpectedLeft
+  apply (ReplaceEither x)   _          = x
+  apply (PatchEither a12 _) (Left  a1) = Left  . apply a12 $ a1
+  apply (PatchEither _ b12) (Right b1) = Right . apply b12 $ b1

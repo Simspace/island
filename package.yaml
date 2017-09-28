@@ -4,12 +4,12 @@ maintainer: SimSpace
 license: AllRightsReserved
 
 default-extensions:
-  - AllowAmbiguousTypes
   - ConstraintKinds
   - DefaultSignatures
   - FlexibleContexts
   - MultiParamTypeClasses
   - ScopedTypeVariables
+  - StandaloneDeriving
   - TypeApplications
   - TypeFamilies
   - UndecidableInstances
