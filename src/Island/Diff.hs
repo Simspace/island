@@ -7,21 +7,34 @@ import Generics.Eot (HasEot, Eot, fromEot, toEot)
 import qualified Generics.Eot as Eot
 
 
--- | A 'Patch' can transform an 'x' into a 'y', and then (once 'invert'ed) back to the original 'x'.
+-- | The patch @diff x y@ captures the differences between 'x' and 'y', so that they may be re-applied to that same 'x'
+-- later on in order to recover 'y'. Potential uses include:
 --
--- Applying a 'Patch' on the 'x' from which it was created using 'diff' will always succeed and will produce the 'y'
--- which was given to 'diff', otherwise it might produce a different value, or it might fail if the given 'x' is
--- 'Incompatible' with the requested change. Implementations which always succeed should set 'Incompatible' to 'Void'.
+-- * More efficient storage, since storing both 'x' and @diff x y@ typically takes less space than storing both 'x' and
+--   'y'.
+-- * Sending changes more efficiently, since sending a @diff x y@ again typically takes less bandwidth than sending the
+--   entire 'y'.
+-- * Reviewing and altering the changes before applying them, since a patch is typically a concrete value which can be
+--   examined and not an opaque function. For example, the 'Undo' type class can be used to revert part of a patch
+--   before applying it. (TODO: implement 'Undo')
+-- * Attempting to merge changes instead of using last-writer-wins, since a patch is again a value which can be examined
+--   and compared with others to detect conflicts and produce a merged patch. Note that 'mappend' /composes/ patches
+--   (one after the other) it does not /merge/ them (both at the same time, unless a merge conflict is detected).
 --
--- 'compose' is useful to convert between incremental backups and differential backups. If you have a full backup of 'x'
--- and you also want to be able to restore to two later points 'y' and 'z', you can either use incremental backups by
--- storing @diff x y@ and @diff y z@, or differential backups by storing @diff x y@ and @diff x z@. You can convert from
--- incremental backups to differential backups by composing your @diff x y@ and your @diff y z@ into a 'Patch'
--- corresponding to @diff x z@. To convert differential backups into incremental backups, remember that each patch can
--- be 'invert'ed, so you also have @diff z x@. Compose it with your @diff x y@ to obtain @diff z y@, and 'invert' it to
--- get @diff y z@.
+-- Patches @diff x y@ and @diff y z@ can be composed using 'mappend', making it possible to obtain a patch 'p' which
+-- brings 'x' to 'z' more efficiently than by patching 'x' to 'y' and 'y' to 'z', and then diffing 'x' and 'z'.
 --
--- Expressed as laws:
+-- Note that I was careful to say "a patch 'p' which brings 'x' to 'z'", not @diff x z@. The result of applying 'p' and
+-- @diff x z@ to 'x' will be 'z' in both cases, but the patch itself might use a different representation. For example,
+-- if @diff x y@ detects that file @foo.txt@ has been renamed to @bar.txt@, and @diff y z@ detects that the contents of
+-- @bar.txt@ has been deleted, 'p' might say that @foo.txt@'s name and contents have both changed, whereas @diff x z@
+-- might say that @foo.txt@ was deleted and that a blank @bar.txt@ has been created.
+--
+-- It is also possible to apply @diff x y@ to a value other than 'x', in which case the result depends on the details of
+-- the patch's representation. For example, if @foo.txt@ doesn't exist, 'p' might do nothing while @diff x z@ might
+-- create a blank @bar.txt@.
+--
+-- Laws:
 --
 -- > patch (diff x y) x = y
 -- > patch mempty = id
