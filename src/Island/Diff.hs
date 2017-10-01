@@ -42,7 +42,7 @@ import qualified Generics.Eot as Eot
 -- > patch (diff x y) x = y
 -- > patch mempty = id
 -- > patch (p <> q) = patch p >>> patch q
-class Monoid (Patch a) => Diff a where
+class (Eq a, Eq (Patch a), Monoid (Patch a)) => Diff a where
   type Patch a
 
   diff  :: a -> a -> Patch a
@@ -232,7 +232,7 @@ deriving instance (Eq   k, Eq   a, Eq   (Patch a)) => Eq   (PatchMap k a)
 nonMEmpty :: (Eq p, Monoid p) => p -> Maybe p
 nonMEmpty p = p <$ guard (p /= mempty)
 
-instance (Ord k, Eq a, Diff a, Eq (Patch a)) => Monoid (PatchMap k a) where
+instance (Ord k, Diff a) => Monoid (PatchMap k a) where
   mempty = PatchMap Map.empty
   PatchMap ka12s `mappend` PatchMap ka23s = PatchMap
                                           $ Map.mergeWithKey (\_ -> mappendElements)
@@ -244,7 +244,7 @@ instance (Ord k, Eq a, Diff a, Eq (Patch a)) => Monoid (PatchMap k a) where
       mappendElements :: PatchElement a -> PatchElement a -> Maybe (PatchElement a)
       mappendElements a12 a23 = nonMEmpty $ a12 <> a23
 
-instance (Ord k, Eq a, Diff a, Eq (Patch a)) => Diff (Map k a) where
+instance (Ord k, Diff a) => Diff (Map k a) where
   type Patch (Map k a) = PatchMap k a
 
   diff ka1s ka2s = PatchMap
