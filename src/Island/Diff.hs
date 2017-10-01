@@ -152,6 +152,9 @@ genericPatch p = fromEot . patch p . toEot
 instance Diff Bool where
   type Patch Bool = Patch (Eot Bool)
 
+instance Diff a => Diff (Maybe a) where
+  type Patch (Maybe a) = Patch (Eot (Maybe a))
+
 
 -- Product types
 
