@@ -1,9 +1,12 @@
 module Island.Diff where
 
+import Control.Monad
+import Data.Map (Map)
 import Data.Monoid
 import Data.Text
 import Data.Void
 import Generics.Eot (HasEot, Eot, fromEot, toEot)
+import qualified Data.Map as Map
 import qualified Generics.Eot as Eot
 
 
@@ -192,3 +195,54 @@ instance (Diff a, Diff b) => Diff (Either a b) where
   patch (ReplaceEither x)   _          = x
   patch (PatchEither a12 _) (Left  a1) = Left  . patch a12 $ a1
   patch (PatchEither _ b12) (Right b1) = Right . patch b12 $ b1
+
+
+type PatchElement a = Patch (Maybe a)
+data PatchMap k a = PatchMap (Map k (PatchElement a))
+
+-- don't store 'mempty' patches, missing keys already mean 'mempty'
+nonMEmpty :: (Eq p, Monoid p) => p -> Maybe p
+nonMEmpty p = p <$ guard (p /= mempty)
+
+instance (Ord k, Eq (PatchElement a), Monoid (PatchElement a)) => Monoid (PatchMap k a) where
+  mempty = PatchMap Map.empty
+  PatchMap ka12s `mappend` PatchMap ka23s = PatchMap
+                                          $ Map.mergeWithKey (\_ -> mappendElements)
+                                                             id
+                                                             id
+                                                             ka12s
+                                                             ka23s
+    where
+      mappendElements :: PatchElement a -> PatchElement a -> Maybe (PatchElement a)
+      mappendElements a12 a23 = nonMEmpty $ a12 <> a23
+
+instance (Ord k, Diff a, Eq (PatchElement a), Diff (Maybe a)) => Diff (Map k a) where
+  type Patch (Map k a) = PatchMap k a
+
+  diff ka1s ka2s = PatchMap
+                 $ Map.mergeWithKey (\_ -> diffElements)
+                                    (Map.map deleteElement)
+                                    (Map.map insertElement)
+                                    ka1s
+                                    ka2s
+    where
+      diffElements :: a -> a -> Maybe (PatchElement a)
+      diffElements a1 a2 = nonMEmpty $ diff (Just a1) (Just a2)
+
+      deleteElement :: a -> PatchElement a
+      deleteElement a1 = diff (Just a1) Nothing
+
+      insertElement :: a -> PatchElement a
+      insertElement a2 = diff Nothing (Just a2)
+
+  patch (PatchMap ka12s) ka1s = Map.mergeWithKey (\_ -> patchJust)
+                                                 (Map.mapMaybe patchNothing)
+                                                 id
+                                                 ka12s
+                                                 ka1s
+    where
+      patchJust :: PatchElement a -> a -> Maybe a
+      patchJust a12 = patch a12 . Just
+
+      patchNothing :: PatchElement a -> Maybe a
+      patchNothing a12 = patch a12 Nothing
