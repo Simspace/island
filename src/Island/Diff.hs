@@ -104,6 +104,12 @@ instance Eq a => Diff (Atomic a) where
   patch p = Atomic . atomicPatch p . unAtomic
 
 
+instance Diff Bool where
+  type Patch Bool = Patch (Atomic Bool)
+
+  diff = atomicDiff
+  patch = atomicPatch
+
 instance Diff Int where
   type Patch Int = Patch (Atomic Int)
 
@@ -147,10 +153,6 @@ genericDiff x y = diff (toEot x) (toEot y)
 genericPatch :: (HasEot a, Diff (Eot a))
              => Patch (Eot a) -> a -> a
 genericPatch p = fromEot . patch p . toEot
-
-
-instance Diff Bool where
-  type Patch Bool = Patch (Eot Bool)
 
 
 -- Product types
