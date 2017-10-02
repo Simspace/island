@@ -180,6 +180,7 @@ data PatchEither a b
   = ReplaceEither (Either a b)
   | PatchEither (Patch a) (Patch b)
 deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
+deriving instance (Eq   a, Eq   b, Eq   (Patch a), Eq   (Patch b)) => Eq   (PatchEither a b)
 
 instance (Diff a, Diff b) => Monoid (PatchEither a b) where
   mempty = PatchEither mempty mempty
@@ -202,6 +203,8 @@ instance (Diff a, Diff b) => Diff (Either a b) where
 
 type PatchElement a = Patch (Maybe a)
 data PatchMap k a = PatchMap (Map k (PatchElement a))
+deriving instance (Show k, Show a, Show (Patch a)) => Show (PatchMap k a)
+deriving instance (Eq   k, Eq   a, Eq   (Patch a)) => Eq   (PatchMap k a)
 
 -- don't store 'mempty' patches, missing keys already mean 'mempty'
 nonMEmpty :: (Eq p, Monoid p) => p -> Maybe p
