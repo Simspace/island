@@ -236,9 +236,12 @@ instance Diff a => Diff (Maybe a) where
 
 
 type PatchElement a = Patch (Maybe a)
-data PatchMap k a = PatchMap (Map k (PatchElement a))
+newtype PatchMap k a = PatchMap
+  { unPatchMap :: Map k (PatchElement a)
+  }
 
-makePrisms ''PatchMap
+_PatchMapAt :: (Ord k, Diff a) => k -> Review (PatchMap k a) (PatchElement a)
+_PatchMapAt k = unto $ PatchMap . Map.singleton k
 
 deriving instance (Show k, Show a, Show (Patch a)) => Show (PatchMap k a)
 deriving instance (Eq   k, Eq   a, Eq   (Patch a)) => Eq   (PatchMap k a)
