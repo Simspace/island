@@ -230,7 +230,7 @@ deriving instance (Eq   k, Eq   a, Eq   (Patch a)) => Eq   (PatchMap k a)
 nonMEmpty :: (Eq p, Monoid p) => p -> Maybe p
 nonMEmpty p = p <$ guard (p /= mempty)
 
-instance (Ord k, Eq (PatchElement a), Monoid (PatchElement a)) => Monoid (PatchMap k a) where
+instance (Ord k, Eq a, Diff a, Eq (Patch a)) => Monoid (PatchMap k a) where
   mempty = PatchMap Map.empty
   PatchMap ka12s `mappend` PatchMap ka23s = PatchMap
                                           $ Map.mergeWithKey (\_ -> mappendElements)
@@ -242,7 +242,7 @@ instance (Ord k, Eq (PatchElement a), Monoid (PatchElement a)) => Monoid (PatchM
       mappendElements :: PatchElement a -> PatchElement a -> Maybe (PatchElement a)
       mappendElements a12 a23 = nonMEmpty $ a12 <> a23
 
-instance (Ord k, Diff a, Eq (PatchElement a), Diff (Maybe a)) => Diff (Map k a) where
+instance (Ord k, Eq a, Diff a, Eq (Patch a)) => Diff (Map k a) where
   type Patch (Map k a) = PatchMap k a
 
   diff ka1s ka2s = PatchMap
