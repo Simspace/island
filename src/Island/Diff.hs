@@ -164,6 +164,12 @@ instance (Diff a, Diff b) => Diff (a, b) where
   diff (a1, b1) (a2, b2) = (diff a1 a2, diff b1 b2)
   patch (a12, b12) (a1, b1) = (patch a12 a1, patch b12 b1)
 
+_PatchFst :: Monoid b => Review (a, b) a
+_PatchFst = unto $ (,mempty)
+
+_PatchSnd :: Monoid a => Review (a, b) b
+_PatchSnd = unto $ (mempty,)
+
 
 -- * Sum types
 
