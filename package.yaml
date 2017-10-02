@@ -8,8 +8,10 @@ default-extensions:
   - DefaultSignatures
   - FlexibleContexts
   - MultiParamTypeClasses
+  - RankNTypes
   - ScopedTypeVariables
   - StandaloneDeriving
+  - TemplateHaskell
   - TypeApplications
   - TypeFamilies
   - UndecidableInstances
@@ -24,6 +26,7 @@ dependencies:
   - base
   - containers
   - generics-eot
+  - lens
   - mtl
   - text
 

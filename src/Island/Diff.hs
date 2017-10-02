@@ -1,5 +1,6 @@
 module Island.Diff where
 
+import Control.Lens
 import Control.Monad
 import Data.Map (Map)
 import Data.Monoid
@@ -178,6 +179,29 @@ instance (Diff a, Diff b) => Diff (a, b) where
 data PatchEither a b
   = ReplaceEither (Either a b)
   | PatchEither (Patch a) (Patch b)
+
+_PatchLeft :: forall a b. Diff b
+           => Prism' (PatchEither a b) (Patch a)
+_PatchLeft = prism' fromLeft isLeft
+  where
+    fromLeft :: Patch a -> PatchEither a b
+    fromLeft a12 = PatchEither a12 mempty
+
+    isLeft :: PatchEither a b -> Maybe (Patch a)
+    isLeft (PatchEither a12 b12) | b12 == mempty = Just a12
+    isLeft _                                     = Nothing
+
+_PatchRight :: forall a b. Diff a
+            => Prism' (PatchEither a b) (Patch b)
+_PatchRight = prism' fromRight isRight
+  where
+    fromRight :: Patch b -> PatchEither a b
+    fromRight b12 = PatchEither mempty b12
+
+    isRight :: PatchEither a b -> Maybe (Patch b)
+    isRight (PatchEither a12 b12) | a12 == mempty = Just b12
+    isRight _                                     = Nothing
+
 deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
 deriving instance (Eq   a, Eq   b, Eq   (Patch a), Eq   (Patch b)) => Eq   (PatchEither a b)
 
@@ -203,6 +227,29 @@ instance (Diff a, Diff b) => Diff (Either a b) where
 data PatchMaybe a
   = ReplaceMaybe (Maybe a)
   | PatchMaybe (Patch a)
+
+_PatchNothing :: forall a. Diff a
+              => Prism' (PatchMaybe a) ()
+_PatchNothing = prism' fromNothing isNothing
+  where
+    fromNothing :: () -> PatchMaybe a
+    fromNothing () = PatchMaybe mempty
+
+    isNothing :: PatchMaybe a -> Maybe ()
+    isNothing (PatchMaybe a12) | a12 == mempty = Just ()
+    isNothing _                                = Nothing
+
+_PatchJust :: forall a
+            . Prism' (PatchMaybe a) (Patch a)
+_PatchJust = prism' fromJust isJust
+  where
+    fromJust :: Patch a -> PatchMaybe a
+    fromJust = PatchMaybe
+
+    isJust :: PatchMaybe a -> Maybe (Patch a)
+    isJust (PatchMaybe a12) = Just a12
+    isJust _                = Nothing
+
 deriving instance (Show a, Show (Patch a)) => Show (PatchMaybe a)
 deriving instance (Eq   a, Eq   (Patch a)) => Eq   (PatchMaybe a)
 
@@ -225,6 +272,9 @@ instance Diff a => Diff (Maybe a) where
 
 type PatchElement a = Patch (Maybe a)
 data PatchMap k a = PatchMap (Map k (PatchElement a))
+
+makePrisms ''PatchMap
+
 deriving instance (Show k, Show a, Show (Patch a)) => Show (PatchMap k a)
 deriving instance (Eq   k, Eq   a, Eq   (Patch a)) => Eq   (PatchMap k a)
 
