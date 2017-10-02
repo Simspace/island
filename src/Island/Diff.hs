@@ -152,9 +152,6 @@ genericPatch p = fromEot . patch p . toEot
 instance Diff Bool where
   type Patch Bool = Patch (Eot Bool)
 
-instance Diff a => Diff (Maybe a) where
-  type Patch (Maybe a) = Patch (Eot (Maybe a))
-
 
 -- Product types
 
@@ -199,6 +196,29 @@ instance (Diff a, Diff b) => Diff (Either a b) where
   patch (ReplaceEither x)   _          = x
   patch (PatchEither a12 _) (Left  a1) = Left  . patch a12 $ a1
   patch (PatchEither _ b12) (Right b1) = Right . patch b12 $ b1
+
+
+data PatchMaybe a
+  = ReplaceMaybe (Maybe a)
+  | PatchMaybe (Patch a)
+deriving instance (Show a, Show (Patch a)) => Show (PatchMaybe a)
+deriving instance (Eq   a, Eq   (Patch a)) => Eq   (PatchMaybe a)
+
+instance Diff a => Monoid (PatchMaybe a) where
+  mempty = PatchMaybe mempty
+  _               `mappend` p@ReplaceMaybe {} = p
+  ReplaceMaybe a2 `mappend` PatchMaybe a23    = ReplaceMaybe $ patch a23 <$> a2
+  PatchMaybe a12  `mappend` PatchMaybe a23    = PatchMaybe $ a12 <> a23
+
+instance Diff a => Diff (Maybe a) where
+  type Patch (Maybe a) = PatchMaybe a
+
+  diff Nothing   Nothing   = mempty
+  diff (Just a1) (Just a2) = PatchMaybe (diff a1 a2)
+  diff _         x         = ReplaceMaybe x
+
+  patch (ReplaceMaybe x) _ = x
+  patch (PatchMaybe p)   x = patch p <$> x
 
 
 type PatchElement a = Patch (Maybe a)
