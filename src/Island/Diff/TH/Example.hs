@@ -12,3 +12,19 @@ data User = User
   deriving (Eq, Show)
 
 makeStructuredPatch ''User
+
+
+data MaybeUser
+  = NothingUser
+  | JustUser User
+  deriving (Eq, Show)
+
+makeStructuredPatch ''MaybeUser
+
+
+data EitherTextInt
+  = LeftText Text
+  | RightInt Int
+  deriving (Eq, Show)
+
+makeStructuredPatch ''EitherTextInt

@@ -107,10 +107,8 @@ dataConToSumCon (DataCon {..}) = do
   fields <- traverse dataConFieldToAnonymousField dcFields
   pure $ SumCon dcName fields
 
-patchisizeSumCon :: SumCon -> SumCon
-patchisizeSumCon (SumCon {..})
-  = SumCon (prefixedName "Patch" sumConName)
-           (patchisizeAnonymousField <$> sumConFields)
+patchisizeSumCon :: SumCon -> [AnonymousField]
+patchisizeSumCon (SumCon {..}) = patchisizeAnonymousField <$> sumConFields
 
 sumConToCon :: SumCon -> Con
 sumConToCon (SumCon {..})
@@ -156,7 +154,13 @@ dataTypeToSumType (DataType {..}) = do
   pure $ SumType dtName constructors
 
 patchisizeSumType :: SumType -> SumType
-patchisizeSumType = error "unimplemented"
+patchisizeSumType (SumType {..})
+  = SumType (prefixedName "Patch" sumTypeName)
+  [ SumCon (prefixedName "Replace" sumTypeName)
+           [AnonymousField . ConT $ sumTypeName]
+  , SumCon (prefixedName "Patch" sumTypeName) 
+           (concatMap patchisizeSumCon sumTypeCons)
+  ]
 
 instance TopLevel SumType where
   declare (SumType {..}) = declare
