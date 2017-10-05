@@ -9,6 +9,7 @@ default-extensions:
   - FlexibleContexts
   - MultiParamTypeClasses
   - RankNTypes
+  - RecordWildCards
   - ScopedTypeVariables
   - StandaloneDeriving
   - TemplateHaskell
@@ -26,9 +27,12 @@ ghc-options:
 dependencies:
   - base
   - containers
+  - extra
   - generics-eot
   - lens
   - mtl
+  - template-haskell
+  - th-utilities
   - text
 
 library:
