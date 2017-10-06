@@ -62,8 +62,11 @@ instance HasFieldTypes a => HasFieldTypes [a] where
   fieldTypes = concatMap fieldTypes
 
 
-patchisizeType :: Type -> Type
-patchisizeType = AppT (ConT ''Patch)
+class Patchisize a where
+  patchisize :: a -> a
+
+instance Patchisize Type where
+  patchisize = AppT (ConT ''Patch)
 
 
 data TypeCon = TypeCon
@@ -77,10 +80,10 @@ instance IsType TypeCon where
                                  (ConT typeConName)
                                  typeConTvs
 
-patchisizeTypeCon :: TypeCon -> TypeCon
-patchisizeTypeCon (TypeCon {..})
-  = TypeCon (prefixedName "Patch" typeConName)
-            typeConTvs
+instance Patchisize TypeCon where
+  patchisize (TypeCon {..})
+    = TypeCon (prefixedName "Patch" typeConName)
+              typeConTvs
 
 
 data AnonymousField = AnonymousField
@@ -96,9 +99,8 @@ dataConFieldToAnonymousField (nameMay, type_) = do
 instance HasFieldTypes AnonymousField where
   fieldTypes (AnonymousField {..}) = [anonymousFieldType]
 
-patchisizeAnonymousField :: AnonymousField -> AnonymousField
-patchisizeAnonymousField (AnonymousField {..})
-  = AnonymousField (patchisizeType anonymousFieldType)
+instance Patchisize AnonymousField where
+  patchisize (AnonymousField {..}) = AnonymousField (patchisize anonymousFieldType)
 
 anonymousFieldToBangType :: AnonymousField -> BangType
 anonymousFieldToBangType (AnonymousField {..})
@@ -119,10 +121,9 @@ dataConFieldToNamedField (nameMay, type_) = do
 instance HasFieldTypes NamedField where
   fieldTypes (NamedField {..}) = [namedFieldType]
 
-patchisizeNamedField :: NamedField -> NamedField
-patchisizeNamedField (NamedField {..})
-  = NamedField (prefixedName "_patch" namedFieldName)
-               (patchisizeType namedFieldType)
+instance Patchisize NamedField where
+  patchisize (NamedField {..}) = NamedField (prefixedName "_patch" namedFieldName)
+                                            (patchisize namedFieldType)
 
 namedFieldToVarBangType :: NamedField -> VarBangType
 namedFieldToVarBangType (NamedField {..})
@@ -170,10 +171,9 @@ dataConToProductCon (DataCon {..}) = do
 instance HasFieldTypes ProductCon where
   fieldTypes (ProductCon {..}) = fieldTypes productConFields
 
-patchisizeProductCon :: ProductCon -> ProductCon
-patchisizeProductCon (ProductCon {..})
-  = ProductCon (prefixedName "Patch" productConName)
-               (patchisizeNamedField <$> productConFields)
+instance Patchisize ProductCon where
+  patchisize (ProductCon {..}) = ProductCon (prefixedName "Patch" productConName)
+                                            (patchisize <$> productConFields)
 
 productConToCon :: ProductCon -> Con
 productConToCon (ProductCon {..})
@@ -209,17 +209,17 @@ instance HasFieldTypes SumType where
 -- > data PatchEither
 -- >   = ReplaceEither (Either a b)
 -- >   | PatchEither (Patch a) (Patch b)
-patchisizeSumType :: SumType -> SumType
-patchisizeSumType (SumType {..})
-  = SumType (patchisizeTypeCon sumTypeCon)
-            [ SumCon (prefixedName "Replace" name)
-                     [AnonymousField $ asType sumTypeCon]
-            , SumCon (prefixedName "Patch" name)
-                     (AnonymousField . patchisizeType <$> fieldTypes sumTypeDataCons)
-            ]
-  where
-    name :: Name
-    name = typeConName sumTypeCon
+instance Patchisize SumType where
+  patchisize (SumType {..})
+    = SumType (patchisize sumTypeCon)
+              [ SumCon (prefixedName "Replace" name)
+                       [AnonymousField $ asType sumTypeCon]
+              , SumCon (prefixedName "Patch" name)
+                       (AnonymousField . patchisize <$> fieldTypes sumTypeDataCons)
+              ]
+    where
+      name :: Name
+      name = typeConName sumTypeCon
 
 instance TopLevel SumType where
   declare (SumType {..}) = declare
@@ -261,10 +261,9 @@ instance HasFieldTypes ProductType where
 -- >   { _patchUserName :: Patch Text
 -- >   , _patchUserAge  :: Patch Int
 -- >   }
-patchisizeProductType :: ProductType -> ProductType
-patchisizeProductType (ProductType {..})
-  = ProductType (patchisizeTypeCon productTypeCon)
-                (patchisizeProductCon productTypeDataCon)
+instance Patchisize ProductType where
+  patchisize (ProductType {..}) = ProductType (patchisize productTypeCon)
+                                              (patchisize productTypeDataCon)
 
 instance TopLevel ProductType where
   declare (ProductType {..}) = declare
@@ -302,9 +301,9 @@ instance HasFieldTypes POAD where
   fieldTypes (SumPoad     x) = fieldTypes x
   fieldTypes (ProductPoad x) = fieldTypes x
 
-patchisizePoad :: POAD -> POAD
-patchisizePoad (SumPoad     x) = SumPoad     $ patchisizeSumType     x
-patchisizePoad (ProductPoad x) = ProductPoad $ patchisizeProductType x
+instance Patchisize POAD where
+  patchisize (SumPoad     x) = SumPoad     $ patchisize x
+  patchisize (ProductPoad x) = ProductPoad $ patchisize x
 
 instance TopLevel POAD where
   declare (SumPoad     x) = declare x
@@ -409,7 +408,7 @@ makeStructuredPatch typeName = do
   poad <- reifyPoad typeName
 
   let patchisizedPoad :: POAD
-      patchisizedPoad = patchisizePoad poad
+      patchisizedPoad = patchisize poad
 
   let derivingEq   = standaloneDeriving (ConT ''Eq  ) patchisizedPoad
   let derivingShow = standaloneDeriving (ConT ''Show) patchisizedPoad
