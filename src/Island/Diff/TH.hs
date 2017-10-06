@@ -48,6 +48,20 @@ instance TopLevel a => TopLevel (Q a) where
   declare mx = declare =<< mx
 
 
+class IsType a where
+  asType :: a -> Type
+
+
+class HasFieldTypes a where
+  fieldTypes :: a -> [Type]
+
+instance HasFieldTypes () where
+  fieldTypes () = []
+
+instance HasFieldTypes a => HasFieldTypes [a] where
+  fieldTypes = concatMap fieldTypes
+
+
 patchisizeType :: Type -> Type
 patchisizeType = AppT (ConT ''Patch)
 
@@ -58,11 +72,10 @@ data TypeCon = TypeCon
   }
   deriving (Eq, Show)
 
-typeConToType :: TypeCon -> Type
-typeConToType (TypeCon {..})
-  = foldl' (\t tv -> t `AppT` VarT tv)
-           (ConT typeConName)
-           typeConTvs
+instance IsType TypeCon where
+  asType (TypeCon {..}) = foldl' (\t tv -> t `AppT` VarT tv)
+                                 (ConT typeConName)
+                                 typeConTvs
 
 patchisizeTypeCon :: TypeCon -> TypeCon
 patchisizeTypeCon (TypeCon {..})
@@ -79,6 +92,9 @@ dataConFieldToAnonymousField :: (Maybe Name, Type) -> Maybe AnonymousField
 dataConFieldToAnonymousField (nameMay, type_) = do
   guard (nameMay == Nothing)
   pure $ AnonymousField type_
+
+instance HasFieldTypes AnonymousField where
+  fieldTypes (AnonymousField {..}) = [anonymousFieldType]
 
 patchisizeAnonymousField :: AnonymousField -> AnonymousField
 patchisizeAnonymousField (AnonymousField {..})
@@ -99,6 +115,9 @@ dataConFieldToNamedField :: (Maybe Name, Type) -> Maybe NamedField
 dataConFieldToNamedField (nameMay, type_) = do
   name <- nameMay
   pure $ NamedField name type_
+
+instance HasFieldTypes NamedField where
+  fieldTypes (NamedField {..}) = [namedFieldType]
 
 patchisizeNamedField :: NamedField -> NamedField
 patchisizeNamedField (NamedField {..})
@@ -125,6 +144,9 @@ dataConToSumCon (DataCon {..}) = do
   fields <- traverse dataConFieldToAnonymousField dcFields
   pure $ SumCon dcName fields
 
+instance HasFieldTypes SumCon where
+  fieldTypes (SumCon {..}) = fieldTypes sumConFields
+
 patchisizeSumCon :: SumCon -> [AnonymousField]
 patchisizeSumCon (SumCon {..}) = patchisizeAnonymousField <$> sumConFields
 
@@ -147,6 +169,9 @@ dataConToProductCon (DataCon {..}) = do
 
   fields <- traverse dataConFieldToNamedField dcFields
   pure $ ProductCon dcName fields
+
+instance HasFieldTypes ProductCon where
+  fieldTypes (ProductCon {..}) = fieldTypes productConFields
 
 patchisizeProductCon :: ProductCon -> ProductCon
 patchisizeProductCon (ProductCon {..})
@@ -171,6 +196,12 @@ dataTypeToSumType (DataType {..}) = do
   constructors <- traverse dataConToSumCon dtCons
   pure $ SumType (TypeCon dtName dtTvs) constructors
 
+instance IsType SumType where
+  asType = asType . sumTypeCon
+
+instance HasFieldTypes SumType where
+  fieldTypes (SumType {..}) = fieldTypes sumTypeDataCons
+
 -- |
 -- > data Either a b
 -- >   = Left  a
@@ -185,7 +216,7 @@ patchisizeSumType :: SumType -> SumType
 patchisizeSumType (SumType {..})
   = SumType (patchisizeTypeCon sumTypeCon)
             [ SumCon (prefixedName "Replace" name)
-                     [AnonymousField $ typeConToType sumTypeCon]
+                     [AnonymousField $ asType sumTypeCon]
             , SumCon (prefixedName "Patch" name)
                      (concatMap patchisizeSumCon sumTypeDataCons)
             ]
@@ -214,6 +245,12 @@ dataTypeToProductType (DataType {..}) = do
   guard (null dtCxt) -- datatype contexts are not supported
   [constructor] <- traverse dataConToProductCon dtCons
   pure $ ProductType (TypeCon dtName dtTvs) constructor
+
+instance IsType ProductType where
+  asType = asType . productTypeCon
+
+instance HasFieldTypes ProductType where
+  fieldTypes (ProductType {..}) = fieldTypes productTypeDataCon
 
 -- |
 -- > data User = User
@@ -260,6 +297,14 @@ reifyPoad typeName = do
              $ printf "The type %s uses features which aren't supported by this TemplateHaskell transformation. We only support products with named fields and sums with anonymous fields."
                       (show typeName)
 
+instance IsType POAD where
+  asType (SumPoad     x) = asType x
+  asType (ProductPoad x) = asType x
+
+instance HasFieldTypes POAD where
+  fieldTypes (SumPoad     x) = fieldTypes x
+  fieldTypes (ProductPoad x) = fieldTypes x
+
 patchisizePoad :: POAD -> POAD
 patchisizePoad (SumPoad     x) = SumPoad     $ patchisizeSumType     x
 patchisizePoad (ProductPoad x) = ProductPoad $ patchisizeProductType x
@@ -269,6 +314,11 @@ instance TopLevel POAD where
   declare (ProductPoad x) = declare x
 
 
+
+standaloneDeriving :: (IsType a, HasFieldTypes a) => Type -> a -> Dec
+standaloneDeriving constraint a
+  = StandaloneDerivD (AppT constraint <$> fieldTypes a)
+                     (AppT constraint  $  asType     a)
 
 
 
@@ -359,5 +409,16 @@ instance TopLevel POAD where
 -- >   patch (PatchEither _ b12) (Right b1) = Right . patch b12 $ b1
 makeStructuredPatch :: Name -> Q [Dec]
 makeStructuredPatch typeName = do
-  patchisizedPoad <- patchisizePoad <$> reifyPoad typeName
-  declare patchisizedPoad
+  poad <- reifyPoad typeName
+
+  let patchisizedPoad :: POAD
+      patchisizedPoad = patchisizePoad poad
+
+  let derivingEq   = standaloneDeriving (ConT ''Eq  ) patchisizedPoad
+  let derivingShow = standaloneDeriving (ConT ''Show) patchisizedPoad
+
+  declare
+    [ declare patchisizedPoad
+    , declare derivingEq
+    , declare derivingShow
+    ]
