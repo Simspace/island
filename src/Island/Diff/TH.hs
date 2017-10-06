@@ -52,6 +52,24 @@ patchisizeType :: Type -> Type
 patchisizeType = AppT (ConT ''Patch)
 
 
+data TypeCon = TypeCon
+  { typeConName :: Name
+  , typeConTvs  :: [Name]  -- ^ type variables
+  }
+  deriving (Eq, Show)
+
+typeConToType :: TypeCon -> Type
+typeConToType (TypeCon {..})
+  = foldl' (\t tv -> t `AppT` VarT tv)
+           (ConT typeConName)
+           typeConTvs
+
+patchisizeTypeCon :: TypeCon -> TypeCon
+patchisizeTypeCon (TypeCon {..})
+  = TypeCon (prefixedName "Patch" typeConName)
+            typeConTvs
+
+
 data AnonymousField = AnonymousField
   { anonymousFieldType :: Type
   }
@@ -141,10 +159,9 @@ productConToCon (ProductCon {..})
 
 
 
-data SumType = SumType       -- e.g. @data Maybe a = Nothing | Just a@
-  { sumTypeName :: Name      -- e.g. @''Maybe@
-  , sumTypeTvs  :: [Name]    -- e.g. @["a"]@
-  , sumTypeCons :: [SumCon]  -- e.g. @[SumCon 'Nothing [], SumCon ''Just [VarT "a"]]@
+data SumType = SumType
+  { sumTypeCon      :: TypeCon
+  , sumTypeDataCons :: [SumCon]
   }
   deriving (Eq, Show)
 
@@ -152,45 +169,51 @@ dataTypeToSumType :: DataType -> Maybe SumType
 dataTypeToSumType (DataType {..}) = do
   guard (null dtCxt) -- datatype contexts are not supported
   constructors <- traverse dataConToSumCon dtCons
-  pure $ SumType dtName dtTvs constructors
+  pure $ SumType (TypeCon dtName dtTvs) constructors
 
-sumTypeToType :: SumType -> Type
-sumTypeToType (SumType {..}) = foldl' (\t tv -> t `AppT` VarT tv)
-                                      (ConT sumTypeName)
-                                      sumTypeTvs
-
+-- |
+-- > data Either a b
+-- >   = Left  a
+-- >   | Right b
+--
+-- to
+--
+-- > data PatchEither
+-- >   = ReplaceEither (Either a b)
+-- >   | PatchEither (Patch a) (Patch b)
 patchisizeSumType :: SumType -> SumType
-patchisizeSumType sumType@(SumType {..})
-  = SumType (prefixedName "Patch" sumTypeName)
-            sumTypeTvs
-            [ SumCon (prefixedName "Replace" sumTypeName)
-                     [AnonymousField $ sumTypeToType sumType]
-            , SumCon (prefixedName "Patch" sumTypeName)
-                     (concatMap patchisizeSumCon sumTypeCons)
+patchisizeSumType (SumType {..})
+  = SumType (patchisizeTypeCon sumTypeCon)
+            [ SumCon (prefixedName "Replace" name)
+                     [AnonymousField $ typeConToType sumTypeCon]
+            , SumCon (prefixedName "Patch" name)
+                     (concatMap patchisizeSumCon sumTypeDataCons)
             ]
+  where
+    name :: Name
+    name = typeConName sumTypeCon
 
 instance TopLevel SumType where
   declare (SumType {..}) = declare
                          $ DataD []
-                                 sumTypeName
-                                 (PlainTV <$> sumTypeTvs)
+                                 (typeConName sumTypeCon)
+                                 (PlainTV <$> typeConTvs sumTypeCon)
                                  Nothing
-                                 (sumConToCon <$> sumTypeCons)
+                                 (sumConToCon <$> sumTypeDataCons)
                                  []
 
 
 data ProductType = ProductType
-  { productTypeName :: Name
-  , productTypeCon  :: ProductCon
+  { productTypeCon     :: TypeCon
+  , productTypeDataCon :: ProductCon
   }
   deriving (Eq, Show)
 
 dataTypeToProductType :: DataType -> Maybe ProductType
 dataTypeToProductType (DataType {..}) = do
-  guard (null dtTvs) -- TODO: support type variables
   guard (null dtCxt) -- datatype contexts are not supported
   [constructor] <- traverse dataConToProductCon dtCons
-  pure $ ProductType dtName constructor
+  pure $ ProductType (TypeCon dtName dtTvs) constructor
 
 -- |
 -- > data User = User
@@ -206,16 +229,16 @@ dataTypeToProductType (DataType {..}) = do
 -- >   }
 patchisizeProductType :: ProductType -> ProductType
 patchisizeProductType (ProductType {..})
-  = ProductType (prefixedName "Patch" productTypeName)
-                (patchisizeProductCon productTypeCon)
+  = ProductType (patchisizeTypeCon productTypeCon)
+                (patchisizeProductCon productTypeDataCon)
 
 instance TopLevel ProductType where
   declare (ProductType {..}) = declare
                              $ DataD []
-                                     productTypeName
-                                     []
+                                     (typeConName productTypeCon)
+                                     (PlainTV <$> typeConTvs productTypeCon)
                                      Nothing
-                                     [productConToCon productTypeCon]
+                                     [productConToCon productTypeDataCon]
                                      []
 
 

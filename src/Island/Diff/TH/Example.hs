@@ -5,28 +5,14 @@ import Data.Text
 import Island.Diff.TH
 
 
-data User = User
-  { _userName :: Text
-  , _userAge  :: Int
+data User a b = User
+  { _userName   :: Text
+  , _userAge    :: Int
+  , _userExtra1 :: a
+  , _userExtra2 :: b
   }
   deriving (Eq, Show)
 
 makeStructuredPatch ''User
-
-
-data MaybeUser
-  = NothingUser
-  | JustUser User
-  deriving (Eq, Show)
-
-makeStructuredPatch ''MaybeUser
 makeStructuredPatch ''Maybe
-
-
-data EitherTextInt
-  = LeftText Text
-  | RightInt Int
-  deriving (Eq, Show)
-
-makeStructuredPatch ''EitherTextInt
 makeStructuredPatch ''Either
