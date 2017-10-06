@@ -20,6 +20,7 @@ data MaybeUser
   deriving (Eq, Show)
 
 makeStructuredPatch ''MaybeUser
+makeStructuredPatch ''Maybe
 
 
 data EitherTextInt
@@ -28,3 +29,4 @@ data EitherTextInt
   deriving (Eq, Show)
 
 makeStructuredPatch ''EitherTextInt
+makeStructuredPatch ''Either

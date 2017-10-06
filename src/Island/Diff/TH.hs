@@ -140,33 +140,40 @@ productConToCon (ProductCon {..})
   = RecC productConName (namedFieldToVarBangType <$> productConFields)
 
 
-data SumType = SumType
-  { sumTypeName :: Name
-  , sumTypeCons :: [SumCon]
+
+data SumType = SumType       -- e.g. @data Maybe a = Nothing | Just a@
+  { sumTypeName :: Name      -- e.g. @''Maybe@
+  , sumTypeTvs  :: [Name]    -- e.g. @["a"]@
+  , sumTypeCons :: [SumCon]  -- e.g. @[SumCon 'Nothing [], SumCon ''Just [VarT "a"]]@
   }
   deriving (Eq, Show)
 
 dataTypeToSumType :: DataType -> Maybe SumType
 dataTypeToSumType (DataType {..}) = do
-  guard (null dtTvs) -- TODO: support type variables
   guard (null dtCxt) -- datatype contexts are not supported
   constructors <- traverse dataConToSumCon dtCons
-  pure $ SumType dtName constructors
+  pure $ SumType dtName dtTvs constructors
+
+sumTypeToType :: SumType -> Type
+sumTypeToType (SumType {..}) = foldl' (\t tv -> t `AppT` VarT tv)
+                                      (ConT sumTypeName)
+                                      sumTypeTvs
 
 patchisizeSumType :: SumType -> SumType
-patchisizeSumType (SumType {..})
+patchisizeSumType sumType@(SumType {..})
   = SumType (prefixedName "Patch" sumTypeName)
-  [ SumCon (prefixedName "Replace" sumTypeName)
-           [AnonymousField . ConT $ sumTypeName]
-  , SumCon (prefixedName "Patch" sumTypeName) 
-           (concatMap patchisizeSumCon sumTypeCons)
-  ]
+            sumTypeTvs
+            [ SumCon (prefixedName "Replace" sumTypeName)
+                     [AnonymousField $ sumTypeToType sumType]
+            , SumCon (prefixedName "Patch" sumTypeName)
+                     (concatMap patchisizeSumCon sumTypeCons)
+            ]
 
 instance TopLevel SumType where
   declare (SumType {..}) = declare
                          $ DataD []
                                  sumTypeName
-                                 []
+                                 (PlainTV <$> sumTypeTvs)
                                  Nothing
                                  (sumConToCon <$> sumTypeCons)
                                  []
