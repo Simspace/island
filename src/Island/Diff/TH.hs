@@ -147,9 +147,6 @@ dataConToSumCon (DataCon {..}) = do
 instance HasFieldTypes SumCon where
   fieldTypes (SumCon {..}) = fieldTypes sumConFields
 
-patchisizeSumCon :: SumCon -> [AnonymousField]
-patchisizeSumCon (SumCon {..}) = patchisizeAnonymousField <$> sumConFields
-
 sumConToCon :: SumCon -> Con
 sumConToCon (SumCon {..})
   = NormalC sumConName (anonymousFieldToBangType <$> sumConFields)
@@ -218,7 +215,7 @@ patchisizeSumType (SumType {..})
             [ SumCon (prefixedName "Replace" name)
                      [AnonymousField $ asType sumTypeCon]
             , SumCon (prefixedName "Patch" name)
-                     (concatMap patchisizeSumCon sumTypeDataCons)
+                     (AnonymousField . patchisizeType <$> fieldTypes sumTypeDataCons)
             ]
   where
     name :: Name
