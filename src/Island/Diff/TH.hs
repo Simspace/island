@@ -292,7 +292,8 @@ instance TopLevel POAD where
 --
 -- (and ideally the following code, but not yet)
 --
--- >   deriving (Eq, Show)
+-- > deriving instance Show PatchUser
+-- > deriving instance Eq   PatchUser
 -- >
 -- > makeLenses ''PatchUser
 -- >
@@ -319,6 +320,43 @@ instance TopLevel POAD where
 -- >     where
 -- >       name2 = patch name12 name1
 -- >       age2 = patch age12 age1
+--
+-- Sum types are supported too, here's what `makeStructuredPatch ''Either` generates:
+--
+-- > data PatchEither a b
+-- >   = ReplaceEither (Either a b)
+-- >   | PatchEither (Patch a) (Patch b)
+--
+-- (and ideally the following code, but not yet)
+--
+-- > deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
+-- > deriving instance (Eq   a, Eq   b, Eq   (Patch a), Eq   (Patch b)) => Eq   (PatchEither a b)
+-- >
+-- > makeLenses ''PatchUser
+-- >
+-- > _PatchLeft :: Diff b => Review (PatchEither a b) (Patch a)
+-- > _PatchLeft = unto $ flip PatchEither mempty
+-- >
+-- > _PatchRight :: Diff a => Review (PatchEither a b) (Patch b)
+-- > _PatchRight = unto $ PatchEither mempty
+-- >
+-- > instance (Diff a, Diff b) => Monoid (PatchEither a b) where
+-- >   mempty = PatchEither mempty mempty
+-- >   _                        `mappend` p@ReplaceEither {}  = p
+-- >   ReplaceEither (Left  a2) `mappend` PatchEither a23 _   = ReplaceEither . Left  . patch a23 $ a2
+-- >   ReplaceEither (Right b2) `mappend` PatchEither _   b23 = ReplaceEither . Right . patch b23 $ b2
+-- >   PatchEither a12 b12      `mappend` PatchEither a23 b23 = PatchEither (a12 <> a23) (b12 <> b23)
+-- >
+-- > instance (Diff a, Diff b) => Diff (Either a b) where
+-- >   type Patch (Either a b) = PatchEither a b
+-- >
+-- >   diff (Left  a1) (Left  a2) = PatchEither (diff a1 a2) mempty
+-- >   diff (Right b1) (Right b2) = PatchEither mempty (diff b1 b2)
+-- >   diff _          x          = ReplaceEither x
+-- >
+-- >   patch (ReplaceEither x)   _          = x
+-- >   patch (PatchEither a12 _) (Left  a1) = Left  . patch a12 $ a1
+-- >   patch (PatchEither _ b12) (Right b1) = Right . patch b12 $ b1
 makeStructuredPatch :: Name -> Q [Dec]
 makeStructuredPatch typeName = do
   patchisizedPoad <- patchisizePoad <$> reifyPoad typeName
