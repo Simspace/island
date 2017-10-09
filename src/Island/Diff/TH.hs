@@ -1,6 +1,9 @@
 module Island.Diff.TH (makeStructuredPatch) where
 
 import Control.Applicative
+import Control.Lens.Internal.FieldTH
+import Control.Lens.Internal.PrismTH
+import Control.Lens.TH
 import Control.Monad
 import Data.Char
 import Data.List.Extra
@@ -10,6 +13,29 @@ import Text.Printf
 import TH.ReifySimple
 
 import Island.Diff
+
+
+-- We would like to generate something like
+--
+-- > data T
+-- > makeLenses ''T
+--
+-- Since @[q|data T|]@ and @makeLenses ''T@ both have type @Q [Dec]@, it seems like we can simply concatenate the
+-- resulting declaration lists, but unfortunately that doesn't work. The problem is that in order to decide which list
+-- of declarations it should output, 'makeLenses' tries to lookup the type @T@ in 'Q''s state, but it's not there
+-- because @[d|data T|]@ doesn't add @T@ to 'Q''s state. Instead, it returns the list of declarations which, once
+-- spliced into the program, will add @T@ to the state of the next splice. This isn't very compositional.
+--
+-- We can avoid the issue by skipping the name lookup and working directly with the 'Info' it would have returned.
+makeLensesForInfo :: Info -> DecsQ
+makeLensesForInfo info = case info of
+  TyConI dec -> makeFieldOpticsForDec lensRules dec
+  _          -> fail "makeLensesForInfo: Expected type constructor name"
+
+makePrismsForInfo :: Info -> DecsQ
+makePrismsForInfo info = case info of
+  TyConI dec -> makeDecPrisms True dec
+  _          -> fail "makePrisms: expected type constructor name"
 
 
 qualifiedName :: Name -> String
@@ -220,14 +246,19 @@ instance Patchisize SumType where
       name :: Name
       name = typeConName sumTypeCon
 
+sumTypeDec :: SumType -> Dec
+sumTypeDec (SumType {..}) = DataD []
+                                  (typeConName sumTypeCon)
+                                  (PlainTV <$> typeConTvs sumTypeCon)
+                                  Nothing
+                                  (sumConToCon <$> sumTypeDataCons)
+                                  []
+
+sumTypeInfo :: SumType -> Info
+sumTypeInfo = TyConI . sumTypeDec
+
 instance TopLevel SumType where
-  declare (SumType {..}) = declare
-                         $ DataD []
-                                 (typeConName sumTypeCon)
-                                 (PlainTV <$> typeConTvs sumTypeCon)
-                                 Nothing
-                                 (sumConToCon <$> sumTypeDataCons)
-                                 []
+  declare = declare . sumTypeDec
 
 
 data ProductType = ProductType
@@ -264,14 +295,19 @@ instance Patchisize ProductType where
   patchisize (ProductType {..}) = ProductType (patchisize productTypeCon)
                                               (patchisize productTypeDataCon)
 
+productTypeDec :: ProductType -> Dec
+productTypeDec (ProductType {..}) = DataD []
+                                          (typeConName productTypeCon)
+                                          (PlainTV <$> typeConTvs productTypeCon)
+                                          Nothing
+                                          [productConToCon productTypeDataCon]
+                                          []
+
+productTypeInfo :: ProductType -> Info
+productTypeInfo = TyConI . productTypeDec
+
 instance TopLevel ProductType where
-  declare (ProductType {..}) = declare
-                             $ DataD []
-                                     (typeConName productTypeCon)
-                                     (PlainTV <$> typeConTvs productTypeCon)
-                                     Nothing
-                                     [productConToCon productTypeDataCon]
-                                     []
+  declare  = declare . productTypeDec
 
 
 data POAD
@@ -337,11 +373,11 @@ standaloneDeriving constraint a
 -- >
 -- > deriving instance Show PatchUser
 -- > deriving instance Eq   PatchUser
+-- >
+-- > makeLenses ''PatchUser
 --
 -- (and ideally the following code, but not yet)
 --
--- > makeLenses ''PatchUser
--- >
 -- > _PatchUserName :: Review PatchUser (Patch Text)
 -- > _PatchUserName = unto $ flip PatchUser mempty
 -- >
@@ -374,11 +410,11 @@ standaloneDeriving constraint a
 -- >
 -- > deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
 -- > deriving instance (Eq   a, Eq   b, Eq   (Patch a), Eq   (Patch b)) => Eq   (PatchEither a b)
+-- >
+-- > makePrisms ''PatchUser
 --
 -- (and ideally the following code, but not yet)
 --
--- > makeLenses ''PatchUser
--- >
 -- > _PatchLeft :: Diff b => Review (PatchEither a b) (Patch a)
 -- > _PatchLeft = unto $ flip PatchEither mempty
 -- >
@@ -412,8 +448,13 @@ makeStructuredPatch typeName = do
   let derivingEq   = standaloneDeriving (ConT ''Eq  ) patchisizedPoad
   let derivingShow = standaloneDeriving (ConT ''Show) patchisizedPoad
 
+  let makeOptics = case patchisizedPoad of
+        SumPoad     x -> makePrismsForInfo . sumTypeInfo     $ x
+        ProductPoad x -> makeLensesForInfo . productTypeInfo $ x
+
   declare
     [ declare patchisizedPoad
     , declare derivingEq
     , declare derivingShow
+    , declare makeOptics
     ]
