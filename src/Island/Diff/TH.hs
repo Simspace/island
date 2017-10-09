@@ -1,4 +1,3 @@
-{-# OPTIONS -Wno-unused-top-binds -Wno-unused-local-binds #-}
 module Island.Diff.TH (makeStructuredPatch) where
 
 import Control.Applicative
