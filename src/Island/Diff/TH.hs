@@ -335,12 +335,12 @@ standaloneDeriving constraint a
 -- >   { _patchUserName :: Patch Text
 -- >   , _patchUserAge  :: Patch Int
 -- >   }
+-- >
+-- > deriving instance Show PatchUser
+-- > deriving instance Eq   PatchUser
 --
 -- (and ideally the following code, but not yet)
 --
--- > deriving instance Show PatchUser
--- > deriving instance Eq   PatchUser
--- >
 -- > makeLenses ''PatchUser
 -- >
 -- > _PatchUserName :: Review PatchUser (Patch Text)
@@ -372,12 +372,12 @@ standaloneDeriving constraint a
 -- > data PatchEither a b
 -- >   = ReplaceEither (Either a b)
 -- >   | PatchEither (Patch a) (Patch b)
+-- >
+-- > deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
+-- > deriving instance (Eq   a, Eq   b, Eq   (Patch a), Eq   (Patch b)) => Eq   (PatchEither a b)
 --
 -- (and ideally the following code, but not yet)
 --
--- > deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
--- > deriving instance (Eq   a, Eq   b, Eq   (Patch a), Eq   (Patch b)) => Eq   (PatchEither a b)
--- >
 -- > makeLenses ''PatchUser
 -- >
 -- > _PatchLeft :: Diff b => Review (PatchEither a b) (Patch a)
