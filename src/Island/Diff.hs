@@ -45,6 +45,7 @@ import qualified Generics.Eot as Eot
 -- > patch (p <> q) = patch p >>> patch q
 class (Eq a, Eq (Patch a), Monoid (Patch a)) => Diff a where
   type Patch a
+  type Patch a = Patch (Eot a)
 
   diff  :: a -> a -> Patch a
   patch :: Patch a -> a -> a
@@ -127,15 +128,7 @@ instance Diff Text where
 -- * Algebraic data types
 
 -- $
--- To 'Diff' your own records and sum types, derive 'Generic' and write a mostly-empty 'Diff' instance for your type.
--- "Mostly", because it's not possible to give a default implementation for the associated type, so you'll have to write
--- something like this:
---
--- > instance Diff MyType where
--- >   type Patch MyType        = Patch        (Eot MyType)
--- >   type Incompatible MyType = Incompatible (Eot MyType)
---
--- And then your type will use a generic 'Patch' representation based on an isomorphic either-of-tuples.
+-- To 'Diff' your own records and sum types, derive 'Generic' and write an empty 'Diff' instance for your type. This will use a generic 'Patch' representation based on an isomorphic either-of-tuples.
 --
 -- Alternatively, use @deriveGenericDiff ''MyType@ to give derive the above.
 --
