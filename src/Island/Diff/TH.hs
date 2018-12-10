@@ -1,3 +1,4 @@
+{-# OPTIONS -Wno-unused-top-binds #-}
 module Island.Diff.TH (makeStructuredPatch) where
 
 import Control.Applicative
@@ -8,6 +9,7 @@ import Control.Monad
 import Data.Char
 import Data.List
 import Data.List.Extra (wordsBy)
+import Data.Traversable
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 import Text.Printf
@@ -470,17 +472,50 @@ makeStructuredPatch typeName = do
   let toBeImplemented :: [Clause]
       toBeImplemented = [Clause [] (NormalB u) []]
 
-  let diffClauses  = toBeImplemented
-  let patchClauses = toBeImplemented
+  diffClauses <- case poad of
+    SumPoad     {} -> pure toBeImplemented
+    ProductPoad {} -> do
+      let n = length (fieldTypes poad)
+      name1s  <- replicateM n (newName "field1")   -- [name1, age1]
+      name2s  <- replicateM n (newName "field2")   -- [name2, age2]
+      name12s <- replicateM n (newName "field12")  -- [name12, age12]
+      let asCtorName :: POAD -> Name
+          asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
+          asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
+      let poadName  = asCtorName poad             -- User
+      let patchName = asCtorName patchisizedPoad  -- PatchUser
+      let leftPat  = ConP poadName  -- { User name1 age1 }
+                   $ fmap VarP name1s
+      let rightPat = ConP poadName  -- { User name2 age2 }
+                   $ fmap VarP name2s
+      let diffBody = foldl' AppE (ConE patchName)  -- PatchUser name12 age12
+                   $ fmap VarE name12s
+      whereClause <- for (zip3 name1s name2s name12s) $ \(name1, name2, name12) -> do
+        body <- [|diff $(varE name1) $(varE name2)|]
+        pure $ ValD (VarP name12) (NormalB body) []  -- name12 = diff name1 name2
 
-  let patchInstance = declarePatchInstance poad patchisizedPoad
-                        diffClauses
-                        patchClauses
+      -- diff (User name1 age1) (User name2 age2) = PatchUser name12 age12
+      --   where
+      --     name12 = diff name1 name2
+      --     age12 = diff age1 age2
+      pure [Clause [leftPat, rightPat] (NormalB diffBody) whereClause]
+
+  --let patchClauses = toBeImplemented
+
+  --let patchInstance = declarePatchInstance poad patchisizedPoad
+  --                      diffClauses
+  --                      patchClauses
 
   declare
     [ declare patchisizedPoad
     , declare derivingEq
     , declare derivingShow
     , declare makeOptics
-    , patchInstance
+    , declare $ do
+        diffName <- newName "diff"
+        type_ <- [t|$(pure $ asType poad) -> $(pure $ asType poad) -> $(pure $ asType patchisizedPoad)|]
+        pure [ SigD diffName type_
+             , FunD diffName diffClauses
+             ]
+    --, patchInstance
     ]
