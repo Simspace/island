@@ -6,7 +6,8 @@ import Control.Lens.Internal.PrismTH
 import Control.Lens.TH
 import Control.Monad
 import Data.Char
-import Data.List.Extra
+import Data.List
+import Data.List.Extra (wordsBy)
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
 import Text.Printf
@@ -352,6 +353,19 @@ standaloneDeriving constraint a
                      (AppT constraint  $  asType     a)
 
 
+declareInstance :: TopLevel a => TypeQ -> a -> DecsQ
+declareInstance tp body = (:) <$> (InstanceD Nothing [] <$> tp <*> declare body)
+                              <*> pure []
+
+declarePatchInstance :: POAD -> POAD -> [Clause] -> [Clause] -> DecsQ
+declarePatchInstance poad patchisizedPoad diffClauses patchClauses
+  = declareInstance [t|Diff $(pure $ asType poad)|]
+      [ declare $ TySynInstD ''Patch $ TySynEqn [asType poad]
+                                                (asType patchisizedPoad)
+      , declare $ FunD 'diff diffClauses
+      , declare $ FunD 'patch patchClauses
+      ]
+
 
 -- |
 -- Generate a 'Patch' type and a 'Diff' implementation for the given type.
@@ -452,9 +466,21 @@ makeStructuredPatch typeName = do
         SumPoad     x -> makePrismsForInfo . sumTypeInfo     $ x
         ProductPoad x -> makeLensesForInfo . productTypeInfo $ x
 
+  u <- [|undefined|]
+  let toBeImplemented :: [Clause]
+      toBeImplemented = [Clause [] (NormalB u) []]
+
+  let diffClauses  = toBeImplemented
+  let patchClauses = toBeImplemented
+
+  let patchInstance = declarePatchInstance poad patchisizedPoad
+                        diffClauses
+                        patchClauses
+
   declare
     [ declare patchisizedPoad
     , declare derivingEq
     , declare derivingShow
     , declare makeOptics
+    , patchInstance
     ]
