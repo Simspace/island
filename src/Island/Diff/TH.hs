@@ -512,10 +512,11 @@ makeStructuredPatch typeName = do
     , declare derivingShow
     , declare makeOptics
     , declare $ do
-        diffName <- newName "diff"
+        let Name (OccName poadName) _ = typeName
+        let diffName = mkName ("diff" ++ poadName)  -- diffUser
         type_ <- [t|$(pure $ asType poad) -> $(pure $ asType poad) -> $(pure $ asType patchisizedPoad)|]
-        pure [ SigD diffName type_
-             , FunD diffName diffClauses
+        pure [ SigD diffName type_        -- diffUser :: User -> User -> PatchUser
+             , FunD diffName diffClauses  -- diffUser = ...
              ]
     --, patchInstance
     ]
