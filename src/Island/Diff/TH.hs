@@ -56,8 +56,8 @@ prefixedName :: String -> Name -> Name
 prefixedName prefix = mkName . (prefix ++) . toUppercase . unqualifiedName
 
 
-defaultBang :: Bang
-defaultBang = Bang NoSourceUnpackedness NoSourceStrictness
+defaultBang :: Q Bang
+defaultBang = bang noSourceUnpackedness noSourceStrictness
 
 
 class TopLevel a where
@@ -77,11 +77,11 @@ instance TopLevel a => TopLevel (Q a) where
 
 
 class IsType a where
-  asType :: a -> Type
+  asType :: a -> TypeQ
 
 
 class HasFieldTypes a where
-  fieldTypes :: a -> [Type]
+  fieldTypes :: a -> [TypeQ]
 
 instance HasFieldTypes () where
   fieldTypes () = []
@@ -96,6 +96,9 @@ class Patchisize a where
 instance Patchisize Type where
   patchisize = AppT (ConT ''Patch)
 
+instance Patchisize a => Patchisize (Q a) where
+  patchisize = fmap patchisize
+
 
 data TypeCon = TypeCon
   { typeConName :: Name
@@ -104,9 +107,8 @@ data TypeCon = TypeCon
   deriving (Eq, Show)
 
 instance IsType TypeCon where
-  asType (TypeCon {..}) = foldl' (\t tv -> t `AppT` VarT tv)
-                                 (ConT typeConName)
-                                 typeConTvs
+  asType (TypeCon {..}) = ctorT typeConName
+                        $ fmap varT typeConTvs
 
 instance Patchisize TypeCon where
   patchisize (TypeCon {..})
@@ -115,11 +117,10 @@ instance Patchisize TypeCon where
 
 
 data AnonymousField = AnonymousField
-  { anonymousFieldType :: Type
+  { anonymousFieldType :: Q Type
   }
-  deriving (Eq, Show)
 
-dataConFieldToAnonymousField :: (Maybe Name, Type) -> Maybe AnonymousField
+dataConFieldToAnonymousField :: (Maybe Name, Q Type) -> Maybe AnonymousField
 dataConFieldToAnonymousField (nameMay, type_) = do
   guard (nameMay == Nothing)
   pure $ AnonymousField type_
@@ -130,18 +131,17 @@ instance HasFieldTypes AnonymousField where
 instance Patchisize AnonymousField where
   patchisize (AnonymousField {..}) = AnonymousField (patchisize anonymousFieldType)
 
-anonymousFieldToBangType :: AnonymousField -> BangType
+anonymousFieldToBangType :: AnonymousField -> Q BangType
 anonymousFieldToBangType (AnonymousField {..})
-  = (defaultBang, anonymousFieldType)
+  = bangType defaultBang anonymousFieldType
 
 
 data NamedField = NamedField
   { namedFieldName :: Name
-  , namedFieldType :: Type
+  , namedFieldType :: Q Type
   }
-  deriving (Eq, Show)
 
-dataConFieldToNamedField :: (Maybe Name, Type) -> Maybe NamedField
+dataConFieldToNamedField :: (Maybe Name, Q Type) -> Maybe NamedField
 dataConFieldToNamedField (nameMay, type_) = do
   name <- nameMay
   pure $ NamedField name type_
@@ -153,16 +153,15 @@ instance Patchisize NamedField where
   patchisize (NamedField {..}) = NamedField (prefixedName "_patch" namedFieldName)
                                             (patchisize namedFieldType)
 
-namedFieldToVarBangType :: NamedField -> VarBangType
+namedFieldToVarBangType :: NamedField -> VarBangTypeQ
 namedFieldToVarBangType (NamedField {..})
-  = (namedFieldName, defaultBang, namedFieldType)
+  = varBangType namedFieldName (bangType defaultBang namedFieldType)
 
 
 data SumCon = SumCon
   { sumConName   :: Name
   , sumConFields :: [AnonymousField]
   }
-  deriving (Eq, Show)
 
 dataConToSumCon :: DataCon -> Maybe SumCon
 dataConToSumCon (DataCon {..}) = do
@@ -170,22 +169,22 @@ dataConToSumCon (DataCon {..}) = do
   guard (null dcTvs)
   guard (null dcCxt)
 
-  fields <- traverse dataConFieldToAnonymousField dcFields
+  fields <- for dcFields $ \(maybeName, type_) -> do
+    dataConFieldToAnonymousField (maybeName, pure type_)
   pure $ SumCon dcName fields
 
 instance HasFieldTypes SumCon where
   fieldTypes (SumCon {..}) = fieldTypes sumConFields
 
-sumConToCon :: SumCon -> Con
+sumConToCon :: SumCon -> Q Con
 sumConToCon (SumCon {..})
-  = NormalC sumConName (anonymousFieldToBangType <$> sumConFields)
+  = normalC sumConName (anonymousFieldToBangType <$> sumConFields)
 
 
 data ProductCon = ProductCon
   { productConName :: Name
   , productConFields :: [NamedField]
   }
-  deriving (Eq, Show)
 
 dataConToProductCon :: DataCon -> Maybe ProductCon
 dataConToProductCon (DataCon {..}) = do
@@ -193,7 +192,8 @@ dataConToProductCon (DataCon {..}) = do
   guard (null dcTvs)
   guard (null dcCxt)
 
-  fields <- traverse dataConFieldToNamedField dcFields
+  fields <- for dcFields $ \(maybeName, type_) -> do
+    dataConFieldToNamedField (maybeName, pure type_)
   pure $ ProductCon dcName fields
 
 instance HasFieldTypes ProductCon where
@@ -203,9 +203,9 @@ instance Patchisize ProductCon where
   patchisize (ProductCon {..}) = ProductCon (prefixedName "Patch" productConName)
                                             (patchisize <$> productConFields)
 
-productConToCon :: ProductCon -> Con
+productConToCon :: ProductCon -> ConQ
 productConToCon (ProductCon {..})
-  = RecC productConName (namedFieldToVarBangType <$> productConFields)
+  = recC productConName (namedFieldToVarBangType <$> productConFields)
 
 
 
@@ -213,7 +213,6 @@ data SumType = SumType
   { sumTypeCon      :: TypeCon
   , sumTypeDataCons :: [SumCon]
   }
-  deriving (Eq, Show)
 
 dataTypeToSumType :: DataType -> Maybe SumType
 dataTypeToSumType (DataType {..}) = do
@@ -249,16 +248,16 @@ instance Patchisize SumType where
       name :: Name
       name = typeConName sumTypeCon
 
-sumTypeDec :: SumType -> Dec
-sumTypeDec (SumType {..}) = DataD []
+sumTypeDec :: SumType -> DecQ
+sumTypeDec (SumType {..}) = dataD (cxt [])
                                   (typeConName sumTypeCon)
                                   (PlainTV <$> typeConTvs sumTypeCon)
                                   Nothing
                                   (sumConToCon <$> sumTypeDataCons)
-                                  []
+                                  (cxt [])
 
-sumTypeInfo :: SumType -> Info
-sumTypeInfo = TyConI . sumTypeDec
+sumTypeInfo :: SumType -> InfoQ
+sumTypeInfo = tyConI . sumTypeDec
 
 instance TopLevel SumType where
   declare = declare . sumTypeDec
@@ -268,7 +267,6 @@ data ProductType = ProductType
   { productTypeCon     :: TypeCon
   , productTypeDataCon :: ProductCon
   }
-  deriving (Eq, Show)
 
 dataTypeToProductType :: DataType -> Maybe ProductType
 dataTypeToProductType (DataType {..}) = do
@@ -298,16 +296,16 @@ instance Patchisize ProductType where
   patchisize (ProductType {..}) = ProductType (patchisize productTypeCon)
                                               (patchisize productTypeDataCon)
 
-productTypeDec :: ProductType -> Dec
-productTypeDec (ProductType {..}) = DataD []
+productTypeDec :: ProductType -> DecQ
+productTypeDec (ProductType {..}) = dataD (cxt [])
                                           (typeConName productTypeCon)
                                           (PlainTV <$> typeConTvs productTypeCon)
                                           Nothing
                                           [productConToCon productTypeDataCon]
-                                          []
+                                          (cxt [])
 
-productTypeInfo :: ProductType -> Info
-productTypeInfo = TyConI . productTypeDec
+productTypeInfo :: ProductType -> InfoQ
+productTypeInfo = tyConI . productTypeDec
 
 instance TopLevel ProductType where
   declare  = declare . productTypeDec
@@ -316,7 +314,6 @@ instance TopLevel ProductType where
 data POAD
   = SumPoad     SumType
   | ProductPoad ProductType
-  deriving (Eq, Show)
 
 dataTypeToPoad :: DataType -> Maybe POAD
 dataTypeToPoad dataType = (SumPoad     <$> dataTypeToSumType     dataType)
@@ -349,23 +346,36 @@ instance TopLevel POAD where
 
 
 
-standaloneDeriving :: (IsType a, HasFieldTypes a) => Type -> a -> Dec
-standaloneDeriving constraint a
-  = StandaloneDerivD (AppT constraint <$> fieldTypes a)
-                     (AppT constraint  $  asType     a)
+tyConI :: DecQ -> InfoQ
+tyConI = fmap TyConI
+
+ctorE :: Name -> [ExpQ] -> ExpQ
+ctorE = foldl' appE . conE
+
+ctorT :: Name -> [TypeQ] -> TypeQ
+ctorT = foldl' appT . conT
+
+
+standaloneDeriving :: (IsType a, HasFieldTypes a) => Name -> a -> DecQ
+standaloneDeriving className a
+  = standaloneDerivD (cxt $ fmap mkConstraint $ fieldTypes a)
+                     (mkConstraint $ asType a)
+  where
+    mkConstraint :: TypeQ -> TypeQ
+    mkConstraint = appT (conT className)
 
 
 declareInstance :: TopLevel a => TypeQ -> a -> DecsQ
 declareInstance tp body = (:) <$> (InstanceD Nothing [] <$> tp <*> declare body)
                               <*> pure []
 
-declarePatchInstance :: POAD -> POAD -> [Clause] -> [Clause] -> DecsQ
+declarePatchInstance :: POAD -> POAD -> [ClauseQ] -> [ClauseQ] -> DecsQ
 declarePatchInstance poad patchisizedPoad diffClauses patchClauses
-  = declareInstance [t|Diff $(pure $ asType poad)|]
-      [ declare $ TySynInstD ''Patch $ TySynEqn [asType poad]
+  = declareInstance [t|Diff $(asType poad)|]
+      [ declare $ tySynInstD ''Patch $ tySynEqn [asType poad]
                                                 (asType patchisizedPoad)
-      , declare $ FunD 'diff diffClauses
-      , declare $ FunD 'patch patchClauses
+      , declare $ funD 'diff diffClauses
+      , declare $ funD 'patch patchClauses
       ]
 
 
@@ -462,23 +472,30 @@ makeStructuredPatch typeName = do
   let patchisizedPoad :: POAD
       patchisizedPoad = patchisize poad
 
-  let derivingEq   = standaloneDeriving (ConT ''Eq  ) patchisizedPoad
-  let derivingShow = standaloneDeriving (ConT ''Show) patchisizedPoad
+  let poadType = asType poad
+  let patchType = asType patchisizedPoad
+
+  let derivingEq   = standaloneDeriving ''Eq   patchisizedPoad
+  let derivingShow = standaloneDeriving ''Show patchisizedPoad
 
   let makeOptics = case patchisizedPoad of
-        SumPoad     x -> makePrismsForInfo . sumTypeInfo     $ x
-        ProductPoad x -> makeLensesForInfo . productTypeInfo $ x
+        SumPoad     x -> makePrismsForInfo =<< sumTypeInfo     x
+        ProductPoad x -> makeLensesForInfo =<< productTypeInfo x
 
-  u <- [|undefined|]
-  let toBeImplemented :: [Clause]
-      toBeImplemented = [Clause [] (NormalB u) []]
+  -- = undefined
+  let toBeImplemented :: [ClauseQ]
+      toBeImplemented = [clause []
+                                (normalB [|undefined|])
+                                []]
 
   let fieldConstraint :: Q Type -> Q Pred
       fieldConstraint t = [t|Diff $t|]
 
   -- (Diff String, Diff Int) => ...
   let fieldConstraints :: Q Cxt
-      fieldConstraints = cxt $ fmap (fieldConstraint . pure) $ fieldTypes poad
+      fieldConstraints = cxt
+                       $ fmap fieldConstraint
+                       $ fieldTypes poad
 
   diffClauses <- case poad of
     SumPoad     {} -> pure toBeImplemented
@@ -492,21 +509,25 @@ makeStructuredPatch typeName = do
           asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
       let ctorName      = asCtorName poad             -- MkUser
       let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
-      let pat1 = ConP ctorName  -- { MkUser name1 age1 }
-               $ fmap VarP name1s
-      let pat2 = ConP ctorName  -- { MkUser name2 age2 }
-               $ fmap VarP name2s
-      let exp12 = foldl' AppE (ConE patchCtorName)  -- PatchMkUser name12 age12
-                $ fmap VarE name12s
-      whereClause <- for (zip3 name1s name2s name12s) $ \(name1, name2, name12) -> do
-        body <- [|diff $(varE name1) $(varE name2)|]
-        pure $ ValD (VarP name12) (NormalB body) []  -- name12 = diff name1 name2
+      let pat1 = conP ctorName  -- { MkUser name1 age1 }
+               $ fmap varP name1s
+      let pat2 = conP ctorName  -- { MkUser name2 age2 }
+               $ fmap varP name2s
+      let exp12 = ctorE patchCtorName  -- PatchMkUser name12 age12
+                $ fmap varE name12s
+      let whereClause = flip fmap (zip3 name1s name2s name12s) $ \(name1, name2, name12)
+                     -> -- name12 = diff name1 name2
+                        valD (varP name12)
+                             (normalB [|diff $(varE name1) $(varE name2)|])
+                             []
 
       -- diff (MkUser name1 age1) (MkUser name2 age2) = PatchMkUser name12 age12
       --   where
       --     name12 = diff name1 name2
       --     age12 = diff age1 age2
-      pure [Clause [pat1, pat2] (NormalB exp12) whereClause]
+      pure [clause [pat1, pat2]
+                   (normalB exp12)
+                   whereClause]
 
   patchClauses <- case poad of
     SumPoad     {} -> pure toBeImplemented
@@ -520,21 +541,25 @@ makeStructuredPatch typeName = do
           asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
       let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
       let ctorName      = asCtorName poad             -- MkUser
-      let pat12 = ConP patchCtorName  -- { PatchMkUser name12 age12 }
-                $ fmap VarP name12s
-      let pat1 = ConP ctorName  -- { MkUser name1 age1 }
-               $ fmap VarP name1s
-      let exp2 = foldl' AppE (ConE ctorName)  -- MkUser name2 age2
-               $ fmap VarE name2s
-      whereClause <- for (zip3 name1s name2s name12s) $ \(name1, name2, name12) -> do
-        body <- [|patch $(varE name12) $(varE name1)|]
-        pure $ ValD (VarP name2) (NormalB body) []  -- name2 = patch name12 name1
+      let pat12 = conP patchCtorName  -- { PatchMkUser name12 age12 }
+                $ fmap varP name12s
+      let pat1 = conP ctorName  -- { MkUser name1 age1 }
+               $ fmap varP name1s
+      let exp2 = ctorE ctorName  -- MkUser name2 age2
+               $ fmap varE name2s
+      let whereClause = flip fmap (zip3 name1s name2s name12s) $ \(name1, name2, name12)
+                     -> -- name2 = patch name12 name1
+                        valD (varP name2)
+                             (normalB [|patch $(varE name12) $(varE name1)|])
+                             []
 
       -- patch (PatchMkUser name12 age12) (MkUser name1 age1) = MkUser name2 age2
       --   where
       --     name2 = patch name12 name1
       --     age2 = patch age12 age1
-      pure [Clause [pat12, pat1] (NormalB exp2) whereClause]
+      pure [clause [pat12, pat1]
+                   (normalB exp2)
+                   whereClause]
 
   --let patchInstance = declarePatchInstance poad patchisizedPoad
   --                      diffClauses
@@ -545,25 +570,17 @@ makeStructuredPatch typeName = do
     , declare derivingEq
     , declare derivingShow
     , declare makeOptics
-    , declare $ do
-        let diffName = mkName ("diff" ++ poadName)  -- diffUser
-        type_ <- forallT [] fieldConstraints
-                         [t| $(pure $ asType poad)
-                          -> $(pure $ asType poad)
-                          -> $(pure $ asType patchisizedPoad)
-                           |]
-        pure [ SigD diffName type_        -- diffUser :: User -> User -> PatchUser
-             , FunD diffName diffClauses  -- diffUser = ...
-             ]
-    , declare $ do
-        let patchName = mkName ("patch" ++ poadName)  -- patchUser
-        type_ <- forallT [] fieldConstraints
-                         [t| $(pure $ asType patchisizedPoad)
-                          -> $(pure $ asType poad)
-                          -> $(pure $ asType poad)
-                           |]
-        pure [ SigD patchName type_         -- patchUser :: PatchUser -> User -> User
-             , FunD patchName patchClauses  -- patchUser = ...
-             ]
+    , let diffName = mkName ("diff" ++ poadName)  -- diffUser
+          type_ = forallT [] fieldConstraints
+                          [t| $(poadType) -> $(poadType) -> $(patchType) |]
+      in declare [ sigD diffName type_        -- diffUser :: User -> User -> PatchUser
+                 , funD diffName diffClauses  -- diffUser = ...
+                 ]
+    , let patchName = mkName ("patch" ++ poadName)  -- patchUser
+          type_ = forallT [] fieldConstraints
+                          [t| $(patchType) -> $(poadType) -> $(poadType) |]
+      in declare [ sigD patchName type_         -- patchUser :: PatchUser -> User -> User
+                 , funD patchName patchClauses  -- patchUser = ...
+                 ]
     --, patchInstance
     ]
