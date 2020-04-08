@@ -4,7 +4,7 @@ import Data.Text
 import Island.Diff.TH
 
 
-data User a b = User
+data User a b = MkUser
   { _userName   :: Text
   , _userAge    :: Int
   , _userExtra1 :: a

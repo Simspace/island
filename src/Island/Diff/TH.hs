@@ -283,14 +283,14 @@ instance HasFieldTypes ProductType where
   fieldTypes (ProductType {..}) = fieldTypes productTypeDataCon
 
 -- |
--- > data User = User
+-- > data User = MkUser
 -- >   { _userName :: Text
 -- >   , _userAge  :: Int
 -- >   }
 --
 -- to
 --
--- > data PatchUser = PatchUser
+-- > data PatchUser = PatchMkUser
 -- >   { _patchUserName :: Patch Text
 -- >   , _patchUserAge  :: Patch Int
 -- >   }
@@ -374,7 +374,7 @@ declarePatchInstance poad patchisizedPoad diffClauses patchClauses
 --
 -- For example, if the type 'User' is defined as follows:
 --
--- > data User = User
+-- > data User = MkUser
 -- >   { _userName :: Text
 -- >   , _userAge  :: Int
 -- >   }
@@ -382,7 +382,7 @@ declarePatchInstance poad patchisizedPoad diffClauses patchClauses
 --
 -- Then `makeStructuredPatch ''User` will generate the following code:
 --
--- > data PatchUser = PatchUser
+-- > data PatchUser = PatchMkUser
 -- >   { _patchUserName :: Patch Text
 -- >   , _patchUserAge  :: Patch Int
 -- >   }
@@ -395,25 +395,25 @@ declarePatchInstance poad patchisizedPoad diffClauses patchClauses
 -- (and ideally the following code, but not yet)
 --
 -- > _PatchUserName :: Review PatchUser (Patch Text)
--- > _PatchUserName = unto $ flip PatchUser mempty
+-- > _PatchUserName = unto $ flip PatchMkUser mempty
 -- >
 -- > _PatchUserAge :: Review PatchUser (Patch Int)
--- > _PatchUserAge = unto $ PatchUser mempty
+-- > _PatchUserAge = unto $ PatchMkUser mempty
 -- >
 -- > instance Monoid PatchUser where
--- >   mempty = PatchUser mempty mempty
--- >   PatchUser name12 age12 `mappend` PatchUser name23 age23 = PatchUser name13 age13
+-- >   mempty = PatchMkUser mempty mempty
+-- >   PatchMkUser name12 age12 `mappend` PatchMkUser name23 age23 = PatchMkUser name13 age13
 -- >     where
 -- >       name13 = name12 <> name23
 -- >       age13 = age12 <> age23
 -- >
 -- > instance Diff User where
 -- >   type Patch User = PatchUser
--- >   diff (User name1 age1) (User name2 age2) = PatchUser name12 age12
+-- >   diff (MkUser name1 age1) (MkUser name2 age2) = PatchMkUser name12 age12
 -- >     where
 -- >       name12 = diff name1 name2
 -- >       age12 = diff age1 age2
--- >   patch (PatchUser name12 age12) (User name1 age1) = User name2 age2
+-- >   patch (PatchMkUser name12 age12) (MkUser name1 age1) = MkUser name2 age2
 -- >     where
 -- >       name2 = patch name12 name1
 -- >       age2 = patch age12 age1
@@ -489,19 +489,19 @@ makeStructuredPatch typeName = do
       let asCtorName :: POAD -> Name
           asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
           asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
-      let poadName  = asCtorName poad             -- User
-      let patchName = asCtorName patchisizedPoad  -- PatchUser
-      let leftPat  = ConP poadName  -- { User name1 age1 }
+      let ctorName      = asCtorName poad             -- MkUser
+      let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
+      let leftPat  = ConP ctorName  -- { MkUser name1 age1 }
                    $ fmap VarP name1s
-      let rightPat = ConP poadName  -- { User name2 age2 }
+      let rightPat = ConP ctorName  -- { MkUser name2 age2 }
                    $ fmap VarP name2s
-      let diffBody = foldl' AppE (ConE patchName)  -- PatchUser name12 age12
+      let diffBody = foldl' AppE (ConE patchCtorName)  -- PatchMkUser name12 age12
                    $ fmap VarE name12s
       whereClause <- for (zip3 name1s name2s name12s) $ \(name1, name2, name12) -> do
         body <- [|diff $(varE name1) $(varE name2)|]
         pure $ ValD (VarP name12) (NormalB body) []  -- name12 = diff name1 name2
 
-      -- diff (User name1 age1) (User name2 age2) = PatchUser name12 age12
+      -- diff (MkUser name1 age1) (MkUser name2 age2) = PatchMkUser name12 age12
       --   where
       --     name12 = diff name1 name2
       --     age12 = diff age1 age2
