@@ -472,6 +472,13 @@ makeStructuredPatch typeName = do
   let toBeImplemented :: [Clause]
       toBeImplemented = [Clause [] (NormalB u) []]
 
+  let diffConstraint :: Q Type -> Q Pred
+      diffConstraint t = [t|Diff $t|]
+
+  -- (Diff String, Diff Int) => ...
+  let diffConstraints :: Q Cxt
+      diffConstraints = cxt $ fmap (diffConstraint . pure) $ fieldTypes poad
+
   diffClauses <- case poad of
     SumPoad     {} -> pure toBeImplemented
     ProductPoad {} -> do
@@ -514,7 +521,11 @@ makeStructuredPatch typeName = do
     , declare $ do
         let Name (OccName poadName) _ = typeName
         let diffName = mkName ("diff" ++ poadName)  -- diffUser
-        type_ <- [t|$(pure $ asType poad) -> $(pure $ asType poad) -> $(pure $ asType patchisizedPoad)|]
+        type_ <- forallT [] diffConstraints
+                         [t| $(pure $ asType poad)
+                          -> $(pure $ asType poad)
+                          -> $(pure $ asType patchisizedPoad)
+                           |]
         pure [ SigD diffName type_        -- diffUser :: User -> User -> PatchUser
              , FunD diffName diffClauses  -- diffUser = ...
              ]
