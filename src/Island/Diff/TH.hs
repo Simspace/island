@@ -427,7 +427,7 @@ declarePatchInstance poad patchisizedPoad diffClauses patchClauses
 -- > deriving instance (Show a, Show b, Show (Patch a), Show (Patch b)) => Show (PatchEither a b)
 -- > deriving instance (Eq   a, Eq   b, Eq   (Patch a), Eq   (Patch b)) => Eq   (PatchEither a b)
 -- >
--- > makePrisms ''PatchUser
+-- > makePrisms ''PatchEither
 --
 -- (and ideally the following code, but not yet)
 --
@@ -456,6 +456,7 @@ declarePatchInstance poad patchisizedPoad diffClauses patchClauses
 -- >   patch (PatchEither _ b12) (Right b1) = Right . patch b12 $ b1
 makeStructuredPatch :: Name -> Q [Dec]
 makeStructuredPatch typeName = do
+  let Name (OccName poadName) _ = typeName
   poad <- reifyPoad typeName
 
   let patchisizedPoad :: POAD
@@ -472,12 +473,12 @@ makeStructuredPatch typeName = do
   let toBeImplemented :: [Clause]
       toBeImplemented = [Clause [] (NormalB u) []]
 
-  let diffConstraint :: Q Type -> Q Pred
-      diffConstraint t = [t|Diff $t|]
+  let fieldConstraint :: Q Type -> Q Pred
+      fieldConstraint t = [t|Diff $t|]
 
   -- (Diff String, Diff Int) => ...
-  let diffConstraints :: Q Cxt
-      diffConstraints = cxt $ fmap (diffConstraint . pure) $ fieldTypes poad
+  let fieldConstraints :: Q Cxt
+      fieldConstraints = cxt $ fmap (fieldConstraint . pure) $ fieldTypes poad
 
   diffClauses <- case poad of
     SumPoad     {} -> pure toBeImplemented
@@ -491,12 +492,12 @@ makeStructuredPatch typeName = do
           asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
       let ctorName      = asCtorName poad             -- MkUser
       let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
-      let leftPat  = ConP ctorName  -- { MkUser name1 age1 }
-                   $ fmap VarP name1s
-      let rightPat = ConP ctorName  -- { MkUser name2 age2 }
-                   $ fmap VarP name2s
-      let diffBody = foldl' AppE (ConE patchCtorName)  -- PatchMkUser name12 age12
-                   $ fmap VarE name12s
+      let pat1 = ConP ctorName  -- { MkUser name1 age1 }
+               $ fmap VarP name1s
+      let pat2 = ConP ctorName  -- { MkUser name2 age2 }
+               $ fmap VarP name2s
+      let exp12 = foldl' AppE (ConE patchCtorName)  -- PatchMkUser name12 age12
+                $ fmap VarE name12s
       whereClause <- for (zip3 name1s name2s name12s) $ \(name1, name2, name12) -> do
         body <- [|diff $(varE name1) $(varE name2)|]
         pure $ ValD (VarP name12) (NormalB body) []  -- name12 = diff name1 name2
@@ -505,7 +506,7 @@ makeStructuredPatch typeName = do
       --   where
       --     name12 = diff name1 name2
       --     age12 = diff age1 age2
-      pure [Clause [leftPat, rightPat] (NormalB diffBody) whereClause]
+      pure [Clause [pat1, pat2] (NormalB exp12) whereClause]
 
   --let patchClauses = toBeImplemented
 
@@ -519,9 +520,8 @@ makeStructuredPatch typeName = do
     , declare derivingShow
     , declare makeOptics
     , declare $ do
-        let Name (OccName poadName) _ = typeName
         let diffName = mkName ("diff" ++ poadName)  -- diffUser
-        type_ <- forallT [] diffConstraints
+        type_ <- forallT [] fieldConstraints
                          [t| $(pure $ asType poad)
                           -> $(pure $ asType poad)
                           -> $(pure $ asType patchisizedPoad)
