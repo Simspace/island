@@ -508,7 +508,33 @@ makeStructuredPatch typeName = do
       --     age12 = diff age1 age2
       pure [Clause [pat1, pat2] (NormalB exp12) whereClause]
 
-  --let patchClauses = toBeImplemented
+  patchClauses <- case poad of
+    SumPoad     {} -> pure toBeImplemented
+    ProductPoad {} -> do
+      let n = length (fieldTypes poad)
+      name12s <- replicateM n (newName "field12")  -- [name12, age12]
+      name1s  <- replicateM n (newName "field1")   -- [name1, age1]
+      name2s  <- replicateM n (newName "field2")   -- [name2, age2]
+      let asCtorName :: POAD -> Name
+          asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
+          asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
+      let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
+      let ctorName      = asCtorName poad             -- MkUser
+      let pat12 = ConP patchCtorName  -- { PatchMkUser name12 age12 }
+                $ fmap VarP name12s
+      let pat1 = ConP ctorName  -- { MkUser name1 age1 }
+               $ fmap VarP name1s
+      let exp2 = foldl' AppE (ConE ctorName)  -- MkUser name2 age2
+               $ fmap VarE name2s
+      whereClause <- for (zip3 name1s name2s name12s) $ \(name1, name2, name12) -> do
+        body <- [|patch $(varE name12) $(varE name1)|]
+        pure $ ValD (VarP name2) (NormalB body) []  -- name2 = patch name12 name1
+
+      -- patch (PatchMkUser name12 age12) (MkUser name1 age1) = MkUser name2 age2
+      --   where
+      --     name2 = patch name12 name1
+      --     age2 = patch age12 age1
+      pure [Clause [pat12, pat1] (NormalB exp2) whereClause]
 
   --let patchInstance = declarePatchInstance poad patchisizedPoad
   --                      diffClauses
@@ -528,6 +554,16 @@ makeStructuredPatch typeName = do
                            |]
         pure [ SigD diffName type_        -- diffUser :: User -> User -> PatchUser
              , FunD diffName diffClauses  -- diffUser = ...
+             ]
+    , declare $ do
+        let patchName = mkName ("patch" ++ poadName)  -- patchUser
+        type_ <- forallT [] fieldConstraints
+                         [t| $(pure $ asType patchisizedPoad)
+                          -> $(pure $ asType poad)
+                          -> $(pure $ asType poad)
+                           |]
+        pure [ SigD patchName type_         -- patchUser :: PatchUser -> User -> User
+             , FunD patchName patchClauses  -- patchUser = ...
              ]
     --, patchInstance
     ]
