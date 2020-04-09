@@ -357,6 +357,9 @@ ctorE = foldl' appE . conE
 ctorT :: Name -> [TypeQ] -> TypeQ
 ctorT = foldl' appT . conT
 
+diffT :: TypeQ -> PredQ
+diffT t = [t|Diff $t|]
+
 
 standaloneDeriving :: (IsType a, HasFieldTypes a) => Name -> a -> DecQ
 standaloneDeriving className a
@@ -370,15 +373,6 @@ standaloneDeriving className a
 declareInstance :: TopLevel a => TypeQ -> a -> DecsQ
 declareInstance tp body = (:) <$> (InstanceD Nothing [] <$> tp <*> declare body)
                               <*> pure []
-
-declarePatchInstance :: POAD -> POAD -> [ClauseQ] -> [ClauseQ] -> DecsQ
-declarePatchInstance poad patchisizedPoad diffClauses patchClauses
-  = declareInstance [t|Diff $(asType poad)|]
-      [ declare $ tySynInstD ''Patch $ tySynEqn [asType poad]
-                                                (asType patchisizedPoad)
-      , declare $ funD 'diff diffClauses
-      , declare $ funD 'patch patchClauses
-      ]
 
 
 -- |
@@ -491,24 +485,11 @@ makeStructuredPatch typeName = do
         SumPoad     x -> makePrismsForInfo =<< sumTypeInfo     x
         ProductPoad x -> makeLensesForInfo =<< productTypeInfo x
 
-  -- = undefined
-  let toBeImplemented :: [ClauseQ]
-      toBeImplemented = [clause []
-                                (normalB [|undefined|])
-                                []]
+  let remainingDecls = case patchisizedPoad of
+        SumPoad {} -> do
+          -- TODO
+          declare ()
 
-  let fieldConstraint :: Q Type -> Q Pred
-      fieldConstraint t = [t|Diff $t|]
-
-  -- (Diff String, Diff Int) => ...
-  let fieldConstraints :: Q Cxt
-      fieldConstraints = cxt
-                       $ fmap fieldConstraint
-                       $ fieldTypes poad
-
-  -- instance Monoid PatchUser where ...
-  let monoidInstance = case poad of
-        SumPoad     {} -> declare ()  -- TODO
         ProductPoad {} -> do
           let asCtorName :: POAD -> Name
               asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
@@ -516,122 +497,92 @@ makeStructuredPatch typeName = do
           let ctorName      = asCtorName poad             -- MkUser
           let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
 
-          declare $ instanceD fieldConstraints                       -- instance (Monoid Text, Monoid Int)
-                              [t|Monoid $(asType patchisizedPoad)|]  --       => Monoid PatchUser where
-                      [ funD 'mempty                                 --   mempty
-                        [ clause []                                  --
-                                 ( normalB                           --
-                                 $ ctorE patchCtorName               --     = PatchUser
-                                 $ replicate n (varE 'mempty)        --         mempty
-                                 )                                   --         mempty
-                                 []                                  --
-                        ]                                            --
-                      , funD 'mappend                                --   mappend
-                        [ clause [ conP patchCtorName                --     (PatchMkUser
-                                 $ fmap varP name12s                 --       name12 age12)
-                                 , conP patchCtorName                --     (PatchMkUser
-                                 $ fmap varP name23s                 --       name23 age23)
-                                 ]                                   --
-                                 ( normalB                           --
-                                 $ ctorE patchCtorName               --     = PatchMkUser
-                                 $ fmap varE name13s                 --         name13 age13
-                                 )                                   --
-                        $ execWriter $ do                            --     where
-                            for_ (zip3 name13s name12s name23s)      --
-                               $ \(name13, name12, name23) -> do     --
-                              tell [valD (varP name13)               --       name13
-                                         ( normalB                   --
-                                         $ [| $(varE name12)         --         = name13
-                                           <> $(varE name23)         --        <> name23
-                                            |]
-                                         )
-                                         []]
-                        ]
-                      ]
+          let pat1 = conP ctorName $ fmap varP name1s         -- { MkUser name1 age1 }
+          let pat2 = conP ctorName $ fmap varP name2s         -- { MkUser name2 age2 }
+          let pat12 = conP patchCtorName $ fmap varP name12s  -- { PatchMkUser name12 age12 }
 
-  diffClauses <- case poad of
-    SumPoad     {} -> pure toBeImplemented
-    ProductPoad {} -> do
-      let asCtorName :: POAD -> Name
-          asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
-          asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
-      let ctorName      = asCtorName poad             -- MkUser
-      let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
-      let pat1 = conP ctorName  -- { MkUser name1 age1 }
-               $ fmap varP name1s
-      let pat2 = conP ctorName  -- { MkUser name2 age2 }
-               $ fmap varP name2s
-      let exp12 = ctorE patchCtorName  -- PatchMkUser name12 age12
-                $ fmap varE name12s
+          let exp2 = ctorE ctorName $ fmap varE name2s        -- MkUser name2 age2
+          let exp12 = ctorE patchCtorName $ fmap varE name12s -- PatchMkUser name12 age12
 
-      pure [ clause [ pat1                          -- diff (MkUser name1 age1)
-                    , pat2                          --      (MkUser name2 age2)
-                    ]                               --
-                    (normalB exp12)                 --   = PatchMkUser name12 age12
-           $ execWriter $ do                        --   where
-               for_ (zip3 name1s name2s name12s)    --
-                  $ \(name1, name2, name12) -> do   --
-                 tell [valD (varP name12)           --     name12
-                            ( normalB               --
-                            $ [|diff $(varE name1)  --       = diff name1
-                                     $(varE name2)  --              name2
-                               |]
-                            )
-                            []]
-           ]
-
-  patchClauses <- case poad of
-    SumPoad     {} -> pure toBeImplemented
-    ProductPoad {} -> do
-      let asCtorName :: POAD -> Name
-          asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
-          asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
-      let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
-      let ctorName      = asCtorName poad             -- MkUser
-      let pat12 = conP patchCtorName  -- { PatchMkUser name12 age12 }
-                $ fmap varP name12s
-      let pat1 = conP ctorName  -- { MkUser name1 age1 }
-               $ fmap varP name1s
-      let exp2 = ctorE ctorName  -- MkUser name2 age2
-               $ fmap varE name2s
-
-      pure [ clause [ pat12                           -- patch (PatchMkUser name12 age12)
-                    , pat1                            --       (MkUser name1 age1)
-                    ]                                 --
-                    (normalB exp2)                    --   = MkUser name2 age2
-           $ execWriter $ do                          --   where
-               for_ (zip3 name1s name2s name12s)      --
-                  $ \(name1, name2, name12) -> do     --
-                 tell [valD (varP name2)              --     name2
-                            ( normalB                 --
-                            $ [|patch $(varE name12)  --       = patch name12
-                                      $(varE name1)   --               name1
-                               |]
-                            )
-                            []]
-           ]
-
-  --let patchInstance = declarePatchInstance poad patchisizedPoad
-  --                      diffClauses
-  --                      patchClauses
+          declare
+            [ instanceD                                    -- instance
+              (cxt $ fmap diffT $ fieldTypes poad)         --     (Monoid Text, Monoid Int)
+              [t|Monoid $(asType patchisizedPoad)|]        --     => Monoid PatchUser where
+              [ funD 'mempty                               --   mempty
+                [ clause []                                --
+                         ( normalB                         --
+                         $ ctorE patchCtorName             --     = PatchUser
+                         $ replicate n (varE 'mempty)      --         mempty
+                         )                                 --         mempty
+                         []                                --
+                ]                                          --
+              , funD 'mappend                              --   mappend
+                [ clause [ conP patchCtorName              --     (PatchMkUser
+                         $ fmap varP name12s               --       name12 age12)
+                         , conP patchCtorName              --     (PatchMkUser
+                         $ fmap varP name23s               --       name23 age23)
+                         ]                                 --
+                         ( normalB                         --
+                         $ ctorE patchCtorName             --     = PatchMkUser
+                         $ fmap varE name13s               --         name13 age13
+                         )                                 --
+                $ execWriter $ do                          --     where
+                    for_ (zip3 name13s name12s name23s)    --
+                       $ \(name13, name12, name23) -> do   --
+                      tell [valD (varP name13)             --       name13
+                                 ( normalB                 --
+                                 $ [| $(varE name12)       --         = name13
+                                   <> $(varE name23)       --        <> name23
+                                    |]                     --
+                                 )                         --
+                                 []]                       --
+                ]                                          --
+              ]                                            --
+            , instanceD                                    -- instance
+              (cxt $ fmap diffT $ fieldTypes poad)         --     (Diff Text, Diff Int)
+              [t|Diff $(asType poad)|]                     --     => Diff User where
+              [ tySynInstD ''Patch                         --   type Patch
+              $ tySynEqn [asType poad]                     --          User
+                         (asType patchisizedPoad)          --      = PatchUser
+              , funD 'diff                                 --   diff
+                [ clause [ pat1                            --     (MkUser name1 age1)
+                         , pat2                            --     (MkUser name2 age2)
+                         ]                                 --
+                         (normalB exp12)                   --     = PatchMkUser name12 age12
+                $ execWriter $ do                          --     where
+                    for_ (zip3 name1s name2s name12s)      --
+                       $ \(name1, name2, name12) -> do     --
+                      tell [valD (varP name12)             --       name12
+                                 ( normalB                 --
+                                 $ [|diff $(varE name1)    --         = diff name1
+                                          $(varE name2)    --                name2
+                                    |]                     --
+                                 )                         --
+                                 []]                       --
+                ]                                          --
+              , funD 'patch                                --   patch
+                [ clause [ pat12                           --     (PatchMkUser name12 age12)
+                         , pat1                            --     (MkUser name1 age1)
+                         ]                                 --
+                         (normalB exp2)                    --   = MkUser name2 age2
+                $ execWriter $ do                          --   where
+                    for_ (zip3 name1s name2s name12s)      --
+                       $ \(name1, name2, name12) -> do     --
+                      tell [valD (varP name2)              --     name2
+                                 ( normalB                 --
+                                 $ [|patch $(varE name12)  --       = patch name12
+                                           $(varE name1)   --               name1
+                                    |]
+                                 )
+                                 []]
+                ]
+              ]
+            ]
 
   declare
     [ declare patchisizedPoad
     , declare derivingEq
     , declare derivingShow
-    , declare monoidInstance
     , declare makeOptics
-    , let diffName = mkName ("diff" ++ poadName)  -- diffUser
-          type_ = forallT [] fieldConstraints
-                          [t| $(poadType) -> $(poadType) -> $(patchType) |]
-      in declare [ sigD diffName type_        -- diffUser :: User -> User -> PatchUser
-                 , funD diffName diffClauses  -- diffUser = ...
-                 ]
-    , let patchName = mkName ("patch" ++ poadName)  -- patchUser
-          type_ = forallT [] fieldConstraints
-                          [t| $(patchType) -> $(poadType) -> $(poadType) |]
-      in declare [ sigD patchName type_         -- patchUser :: PatchUser -> User -> User
-                 , funD patchName patchClauses  -- patchUser = ...
-                 ]
-    --, patchInstance
+    , declare remainingDecls
     ]
