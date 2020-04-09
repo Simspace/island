@@ -370,11 +370,6 @@ standaloneDeriving className a
     mkConstraint = appT (conT className)
 
 
-declareInstance :: TopLevel a => TypeQ -> a -> DecsQ
-declareInstance tp body = (:) <$> (InstanceD Nothing [] <$> tp <*> declare body)
-                              <*> pure []
-
-
 -- |
 -- Generate a 'Patch' type and a 'Diff' implementation for the given type.
 --
