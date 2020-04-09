@@ -457,7 +457,6 @@ standaloneDeriving className a
 -- >   patch (PatchEither _ b12) (Right b1) = Right . patch b12 $ b1
 makeStructuredPatch :: Name -> Q [Dec]
 makeStructuredPatch typeName = do
-  let Name (OccName poadName) _ = typeName
   poad <- reifyPoad typeName
 
   let n = length (fieldTypes poad)
@@ -502,7 +501,7 @@ makeStructuredPatch typeName = do
           declare
             [ instanceD                                    -- instance
               (cxt $ fmap diffT $ fieldTypes poad)         --     (Monoid Text, Monoid Int)
-              [t|Monoid $(asType patchisizedPoad)|]        --     => Monoid PatchUser where
+              [t|Monoid $patchType|]                       --     => Monoid PatchUser where
               [ funD 'mempty                               --   mempty
                 [ clause []                                --
                          ( normalB                         --
@@ -535,10 +534,10 @@ makeStructuredPatch typeName = do
               ]                                            --
             , instanceD                                    -- instance
               (cxt $ fmap diffT $ fieldTypes poad)         --     (Diff Text, Diff Int)
-              [t|Diff $(asType poad)|]                     --     => Diff User where
+              [t|Diff $poadType|]                          --     => Diff User where
               [ tySynInstD ''Patch                         --   type Patch
-              $ tySynEqn [asType poad]                     --          User
-                         (asType patchisizedPoad)          --      = PatchUser
+              $ tySynEqn [poadType]                        --          User
+                         patchType                         --      = PatchUser
               , funD 'diff                                 --   diff
                 [ clause [ pat1                            --     (MkUser name1 age1)
                          , pat2                            --     (MkUser name2 age2)
