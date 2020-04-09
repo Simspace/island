@@ -10,6 +10,7 @@ import Control.Monad.Trans.Writer
 import Data.Char
 import Data.Foldable
 import Data.List.Extra (wordsBy)
+import Data.Monoid
 import Data.Traversable
 import Language.Haskell.TH
 import Language.Haskell.TH.Syntax
@@ -470,6 +471,13 @@ makeStructuredPatch typeName = do
   let Name (OccName poadName) _ = typeName
   poad <- reifyPoad typeName
 
+  let n = length (fieldTypes poad)
+  name1s  <- replicateM n (newName "field1")   -- [name1, age1]
+  name2s  <- replicateM n (newName "field2")   -- [name2, age2]
+  name12s <- replicateM n (newName "field12")  -- [name12, age12]
+  name23s <- replicateM n (newName "field23")  -- [name23, age23]
+  name13s <- replicateM n (newName "field13")  -- [name13, age13]
+
   let patchisizedPoad :: POAD
       patchisizedPoad = patchisize poad
 
@@ -498,13 +506,52 @@ makeStructuredPatch typeName = do
                        $ fmap fieldConstraint
                        $ fieldTypes poad
 
+  -- instance Monoid PatchUser where ...
+  let monoidInstance = case poad of
+        SumPoad     {} -> declare ()  -- TODO
+        ProductPoad {} -> do
+          let asCtorName :: POAD -> Name
+              asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
+              asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
+          let ctorName      = asCtorName poad             -- MkUser
+          let patchCtorName = asCtorName patchisizedPoad  -- PatchMkUser
+
+          declare $ instanceD fieldConstraints                       -- instance (Monoid Text, Monoid Int)
+                              [t|Monoid $(asType patchisizedPoad)|]  --       => Monoid PatchUser where
+                      [ funD 'mempty                                 --   mempty
+                        [ clause []                                  --
+                                 ( normalB                           --
+                                 $ ctorE patchCtorName               --     = PatchUser
+                                 $ replicate n (varE 'mempty)        --         mempty
+                                 )                                   --         mempty
+                                 []                                  --
+                        ]                                            --
+                      , funD 'mappend                                --   mappend
+                        [ clause [ conP patchCtorName                --     (PatchMkUser
+                                 $ fmap varP name12s                 --       name12 age12)
+                                 , conP patchCtorName                --     (PatchMkUser
+                                 $ fmap varP name23s                 --       name23 age23)
+                                 ]                                   --
+                                 ( normalB                           --
+                                 $ ctorE patchCtorName               --     = PatchMkUser
+                                 $ fmap varE name13s                 --         name13 age13
+                                 )                                   --
+                        $ execWriter $ do                            --     where
+                            for_ (zip3 name13s name12s name23s)      --
+                               $ \(name13, name12, name23) -> do     --
+                              tell [valD (varP name13)               --       name13
+                                         ( normalB                   --
+                                         $ [| $(varE name12)         --         = name13
+                                           <> $(varE name23)         --        <> name23
+                                            |]
+                                         )
+                                         []]
+                        ]
+                      ]
+
   diffClauses <- case poad of
     SumPoad     {} -> pure toBeImplemented
     ProductPoad {} -> do
-      let n = length (fieldTypes poad)
-      name1s  <- replicateM n (newName "field1")   -- [name1, age1]
-      name2s  <- replicateM n (newName "field2")   -- [name2, age2]
-      name12s <- replicateM n (newName "field12")  -- [name12, age12]
       let asCtorName :: POAD -> Name
           asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
           asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
@@ -517,25 +564,25 @@ makeStructuredPatch typeName = do
       let exp12 = ctorE patchCtorName  -- PatchMkUser name12 age12
                 $ fmap varE name12s
 
-      pure [ clause [ pat1                         -- diff (MkUser name1 age1)
-                    , pat2                         --      (MkUser name2 age2)
-                    ]                              --
-                    (normalB exp12)                --   = PatchMkUser name12 age12
-           $ execWriter $ do                       --   where
-               for_ (zip3 name1s name2s name12s)   --
-                  $ \(name1, name2, name12) -> do  --
-                 tell [valD (varP name12)          --     name12 = diff name1 name2
-                            (normalB [|diff $(varE name1) $(varE name2)|])
+      pure [ clause [ pat1                          -- diff (MkUser name1 age1)
+                    , pat2                          --      (MkUser name2 age2)
+                    ]                               --
+                    (normalB exp12)                 --   = PatchMkUser name12 age12
+           $ execWriter $ do                        --   where
+               for_ (zip3 name1s name2s name12s)    --
+                  $ \(name1, name2, name12) -> do   --
+                 tell [valD (varP name12)           --     name12
+                            ( normalB               --
+                            $ [|diff $(varE name1)  --       = diff name1
+                                     $(varE name2)  --              name2
+                               |]
+                            )
                             []]
            ]
 
   patchClauses <- case poad of
     SumPoad     {} -> pure toBeImplemented
     ProductPoad {} -> do
-      let n = length (fieldTypes poad)
-      name12s <- replicateM n (newName "field12")  -- [name12, age12]
-      name1s  <- replicateM n (newName "field1")   -- [name1, age1]
-      name2s  <- replicateM n (newName "field2")   -- [name2, age2]
       let asCtorName :: POAD -> Name
           asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
           asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
@@ -548,15 +595,19 @@ makeStructuredPatch typeName = do
       let exp2 = ctorE ctorName  -- MkUser name2 age2
                $ fmap varE name2s
 
-      pure [ clause [ pat12                        -- patch (PatchMkUser name12 age12)
-                    , pat1                         --       (MkUser name1 age1)
-                    ]                              --
-                    (normalB exp2)                 --   = MkUser name2 age2
-           $ execWriter $ do                       --   where
-               for_ (zip3 name1s name2s name12s)   --
-                  $ \(name1, name2, name12) -> do  --
-                 tell [valD (varP name2)           --     name2 = patch name12 name1
-                            (normalB [|patch $(varE name12) $(varE name1)|])
+      pure [ clause [ pat12                           -- patch (PatchMkUser name12 age12)
+                    , pat1                            --       (MkUser name1 age1)
+                    ]                                 --
+                    (normalB exp2)                    --   = MkUser name2 age2
+           $ execWriter $ do                          --   where
+               for_ (zip3 name1s name2s name12s)      --
+                  $ \(name1, name2, name12) -> do     --
+                 tell [valD (varP name2)              --     name2
+                            ( normalB                 --
+                            $ [|patch $(varE name12)  --       = patch name12
+                                      $(varE name1)   --               name1
+                               |]
+                            )
                             []]
            ]
 
@@ -568,6 +619,7 @@ makeStructuredPatch typeName = do
     [ declare patchisizedPoad
     , declare derivingEq
     , declare derivingShow
+    , declare monoidInstance
     , declare makeOptics
     , let diffName = mkName ("diff" ++ poadName)  -- diffUser
           type_ = forallT [] fieldConstraints
