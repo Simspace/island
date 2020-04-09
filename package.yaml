@@ -32,8 +32,9 @@ dependencies:
   - lens
   - mtl
   - template-haskell
-  - th-utilities
   - text
+  - th-utilities
+  - transformers
 
 library:
   source-dirs: src

@@ -6,8 +6,9 @@ import Control.Lens.Internal.FieldTH
 import Control.Lens.Internal.PrismTH
 import Control.Lens.TH
 import Control.Monad
+import Control.Monad.Trans.Writer
 import Data.Char
-import Data.List
+import Data.Foldable
 import Data.List.Extra (wordsBy)
 import Data.Traversable
 import Language.Haskell.TH
@@ -515,19 +516,18 @@ makeStructuredPatch typeName = do
                $ fmap varP name2s
       let exp12 = ctorE patchCtorName  -- PatchMkUser name12 age12
                 $ fmap varE name12s
-      let whereClause = flip fmap (zip3 name1s name2s name12s) $ \(name1, name2, name12)
-                     -> -- name12 = diff name1 name2
-                        valD (varP name12)
-                             (normalB [|diff $(varE name1) $(varE name2)|])
-                             []
 
-      -- diff (MkUser name1 age1) (MkUser name2 age2) = PatchMkUser name12 age12
-      --   where
-      --     name12 = diff name1 name2
-      --     age12 = diff age1 age2
-      pure [clause [pat1, pat2]
-                   (normalB exp12)
-                   whereClause]
+      pure [ clause [ pat1                         -- diff (MkUser name1 age1)
+                    , pat2                         --      (MkUser name2 age2)
+                    ]                              --
+                    (normalB exp12)                --   = PatchMkUser name12 age12
+           $ execWriter $ do                       --   where
+               for_ (zip3 name1s name2s name12s)   --
+                  $ \(name1, name2, name12) -> do  --
+                 tell [valD (varP name12)          --     name12 = diff name1 name2
+                            (normalB [|diff $(varE name1) $(varE name2)|])
+                            []]
+           ]
 
   patchClauses <- case poad of
     SumPoad     {} -> pure toBeImplemented
@@ -547,19 +547,18 @@ makeStructuredPatch typeName = do
                $ fmap varP name1s
       let exp2 = ctorE ctorName  -- MkUser name2 age2
                $ fmap varE name2s
-      let whereClause = flip fmap (zip3 name1s name2s name12s) $ \(name1, name2, name12)
-                     -> -- name2 = patch name12 name1
-                        valD (varP name2)
-                             (normalB [|patch $(varE name12) $(varE name1)|])
-                             []
 
-      -- patch (PatchMkUser name12 age12) (MkUser name1 age1) = MkUser name2 age2
-      --   where
-      --     name2 = patch name12 name1
-      --     age2 = patch age12 age1
-      pure [clause [pat12, pat1]
-                   (normalB exp2)
-                   whereClause]
+      pure [ clause [ pat12                        -- patch (PatchMkUser name12 age12)
+                    , pat1                         --       (MkUser name1 age1)
+                    ]                              --
+                    (normalB exp2)                 --   = MkUser name2 age2
+           $ execWriter $ do                       --   where
+               for_ (zip3 name1s name2s name12s)   --
+                  $ \(name1, name2, name12) -> do  --
+                 tell [valD (varP name2)           --     name2 = patch name12 name1
+                            (normalB [|patch $(varE name12) $(varE name1)|])
+                            []]
+           ]
 
   --let patchInstance = declarePatchInstance poad patchisizedPoad
   --                      diffClauses
