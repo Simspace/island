@@ -431,6 +431,11 @@ standaloneDeriving className a
 --
 -- (and ideally the following code, but not yet)
 --
+-- > _ReplaceEither :: Prism (PatchEither a b) (Either a b)
+-- > _ReplaceEither = prism ReplaceEither $ \case
+-- >   ReplaceEither x -> Right x
+-- >   x               -> Left x
+-- >
 -- > _PatchLeft :: Diff b => Review (PatchEither a b) (Patch a)
 -- > _PatchLeft = unto $ flip PatchEither mempty
 -- >
