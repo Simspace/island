@@ -506,7 +506,7 @@ makeStructuredPatch typeName = do
             [ declare
             $ execWriter
             $ for_ (zip [0..] patchFields)
-            $ \(i, NamedField patchFieldName patchFieldType_) -> do
+            $ \(i, NamedField patchFieldName patchFieldType) -> do
               let reviewName = prefixedName "_" patchFieldName
               tell [sigD
                     reviewName                             -- _PatchUserName
@@ -517,7 +517,7 @@ makeStructuredPatch typeName = do
                              )                             --
                              [t| Review                    --   => Review
                                    $patchType              --        PatchUser
-                                   $patchFieldType_        --        (Patch Text)
+                                   $patchFieldType         --        (Patch Text)
                                |])]                        --
               tell [valD                                   --
                     (varP reviewName)                      -- _PatchUserName
