@@ -1,3 +1,4 @@
+{-# LANGUAGE LambdaCase #-}
 module Island.Diff where
 
 import Control.Lens
@@ -85,13 +86,18 @@ instance Diff () where
 --
 -- TODO: implement 'deriveAtomicDiff' using Template Haskell.
 
-atomicDiff :: Eq a => a -> a -> Last a
+atomicDiff :: Eq a => a -> a -> Patch (Atomic a)
 atomicDiff a1 a2 | a1 == a2  = Last Nothing
                  | otherwise = Last . Just $ a2
 
-atomicPatch :: Last a -> a -> a
+atomicPatch :: Patch (Atomic a) -> a -> a
 atomicPatch (Last (Just a))_ = a
 atomicPatch (Last Nothing) a = a
+
+_Atomic :: Prism' (Patch (Atomic a)) a
+_Atomic = prism (Last . Just) $ \case
+  Last (Just a) -> Right a
+  x -> Left x
 
 
 -- | A newtype wrapper which gives an atomic 'Diff' instance to any 'Eq'.
