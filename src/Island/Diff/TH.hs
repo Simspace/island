@@ -4,6 +4,7 @@ module Island.Diff.TH (makeStructuredPatch) where
 import Control.Applicative
 import Control.Lens.Internal.FieldTH
 import Control.Lens.Internal.PrismTH
+import Control.Lens (Review, unto)
 import Control.Lens.TH
 import Control.Monad
 import Control.Monad.Trans.Writer
@@ -392,9 +393,7 @@ standaloneDeriving className a
 -- > deriving instance Eq   PatchUser
 -- >
 -- > makeLenses ''PatchUser
---
--- (and ideally the following code, but not yet)
---
+-- >
 -- > _PatchUserName :: Review PatchUser (Patch Text)
 -- > _PatchUserName = unto $ flip PatchMkUser mempty
 -- >
@@ -484,7 +483,7 @@ makeStructuredPatch typeName = do
           -- TODO
           declare ()
 
-        ProductPoad {} -> do
+        ProductPoad (ProductType _ (ProductCon _ patchFields)) -> do
           let asCtorName :: POAD -> Name
               asCtorName (ProductPoad (ProductType _ (ProductCon name _))) = name
               asCtorName (SumPoad {}) = error "never happens: we know poad and patchisizedPoad are products."
@@ -499,8 +498,37 @@ makeStructuredPatch typeName = do
           let exp12 = ctorE patchCtorName $ fmap varE name12s -- PatchMkUser name12 age12
 
           declare
-            [ instanceD                                    -- instance
-              (cxt $ fmap diffT $ fieldTypes poad)         --     (Monoid Text, Monoid Int)
+            [ declare
+            $ execWriter
+            $ for_ (zip [0..] patchFields)
+            $ \(i, NamedField patchFieldName patchFieldType_) -> do
+              let reviewName = prefixedName "_" patchFieldName
+              tell [sigD
+                    reviewName                             -- _PatchUserName
+                    (forallT []                            --
+                             ( cxt                         --
+                             $ fmap diffT                  --   :: (Diff
+                             $ fieldTypes poad             --         Text, Diff Int)
+                             )                             --
+                             [t| Review                    --   => Review
+                                   $patchType              --        PatchUser
+                                   $patchFieldType_        --        (Patch Text)
+                               |])]                        --
+              tell [valD                                   --
+                    (varP reviewName)                      -- _PatchUserName
+                    ( normalB                              --
+                    $ [| unto $ \x                         --   = unto $ \x
+                      -> $( ctorE patchCtorName            --  -> PatchUser
+                          $ replicate i [|mempty|]         --
+                         ++ [[|x|]]                        --       x
+                         ++ replicate (n-i-1) [|mempty|]   --       mempty
+                          )                                --
+                       |]                                  --
+                    )                                      --
+                    []]                                    --
+            , declare                                      --
+            $ instanceD                                    -- instance
+              (cxt $ fmap diffT $ fieldTypes poad)         --     (Diff Text, Diff Int)
               [t|Monoid $patchType|]                       --     => Monoid PatchUser where
               [ funD 'mempty                               --   mempty
                 [ clause []                                --
@@ -532,7 +560,8 @@ makeStructuredPatch typeName = do
                                  []]                       --
                 ]                                          --
               ]                                            --
-            , instanceD                                    -- instance
+            , declare                                      --
+            $ instanceD                                    -- instance
               (cxt $ fmap diffT $ fieldTypes poad)         --     (Diff Text, Diff Int)
               [t|Diff $poadType|]                          --     => Diff User where
               [ tySynInstD ''Patch                         --   type Patch
