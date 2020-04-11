@@ -75,16 +75,19 @@ instance Diff () where
 -- * Atomic types
 
 -- $
--- For non-containers, the 'Diff' implementation is boring: a 'Patch' stores the new value, and also the old value so we
--- can go in the other direction. One important design decision is: do we want the update to succeed when applied to a
--- value which differs from the old value we recored? In this implementation, the update fails with a 'Mismatch' error.
--- See the 'Diff' instance for 'Last' if you want an update which always succeeds.
+-- The patch for a record is defined in terms of the patches for its fields, and so un until we reach an atomic type
+-- like 'Int' which cannot (or should not; it would not be semantically useful to indicate which bits have changed) be
+-- further divided. An atomic patch simply replaces the atomic value with another one.
 --
--- TODO: implement the 'Diff' instance for 'Last'.
+-- The 'Atomic' newtype wrapper makes it easy to write a 'Diff' instance for your own atomic types, as follows:
 --
--- Use @deriveAtomicDiff ''MyType@ to give derive a 'Diff' instance for a non-container type 'MyType'.
+-- > instance Diff MyType where
+-- >   type Patch MyType = Patch (Atomic MyType)
+-- >
+-- >   diff = atomicDiff
+-- >   patch = atomicPatch
 --
--- TODO: implement 'deriveAtomicDiff' using Template Haskell.
+-- TODO: upgrade to a more recent version of GHC and recommend deriving-via instead.
 
 atomicDiff :: Eq a => a -> a -> Patch (Atomic a)
 atomicDiff a1 a2 | a1 == a2  = Last Nothing
@@ -134,7 +137,8 @@ instance Diff Text where
 -- * Algebraic data types
 
 -- $
--- To 'Diff' your own records and sum types, derive 'Generic' and write an empty 'Diff' instance for your type. This will use a generic 'Patch' representation based on an isomorphic either-of-tuples.
+-- To 'Diff' your own records and sum types, derive 'Generic' and write an empty 'Diff' instance for your type. This
+-- will use a generic 'Patch' representation based on an isomorphic either-of-tuples.
 --
 -- Alternatively, use @deriveGenericDiff ''MyType@ to give derive the above.
 --
@@ -173,13 +177,17 @@ _PatchSnd = unto $ (mempty,)
 -- * Sum types
 
 -- $
--- Sum types are the main reason updates can fail: if we have a 'Patch' which expects a @Left a@ but we 'patch' it to a
--- @Right b@, we have no choice but to fail with an 'UnexpectedRight' error. Another possibility is a 'Patch' which
--- switches from one constructor to another, 'LeftToRight' for example. In this case, the values are so unrelated that
--- we have no choice but to store the entire new value, and also the old value so we can go in the other direction.
--- Since we have an entire replacement value we could use as the answer, we again have the choice to succeed or to fail
--- if we patch such a constructor-swapping 'Patch' to a value which differs from the old value we recored. In this
--- implementation, for consistency with the atomic case, we fail with a 'MismatchedLeft' if that occurs.
+-- Sum types are the reason 'mappend' composes patches (one after the other) instead of merging them (both at the same
+-- time). If one patch replaces the constructor with 'A' while the other patch replaces it with 'B', which constructor
+-- would the combined patch replace it with? With the merging semantics, there is no natural answer, whereas with the
+-- composition semantics, replacing the constructor with 'A' and then replacing 'A' with 'B' naturally results in a 'B'.
+--
+-- Sum types are also the reason why @diff x y <> diff y z@ is not guaranteed to result in @diff x z@. In our generic
+-- implementation, if @diff x y@ changes the constructor from 'A' to 'B' and @diff y z@ changes it back from 'B' to 'A',
+-- then both of those patches ignore their input and always return the same value (respectively 'y' and 'z'), and their
+-- composition is also a patch which ignores its input and always returns 'z'. @diff x y@, on the other hand, is diffing
+-- two 'A's, and so it can do something smarter. Our generic implementation recursively diffs the 'A' fields; and is a
+-- no-op when applied to a non-'A' constructor.
 
 data PatchEither a b
   = ReplaceEither (Either a b)
